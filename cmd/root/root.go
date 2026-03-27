@@ -9,7 +9,7 @@ import (
 
 var rootCmd = &cobra.Command{
 	Use:   "gofenrir",
-	Short: "GoFenrir — Network execution framework powered by Manticore",
+	Short: "GoFenrir: network execution framework powered by Manticore",
 	Long: `
   ____       _____            _
  / ___| ___ |  ___|___ _ __  _ _ __
@@ -17,7 +17,7 @@ var rootCmd = &cobra.Command{
 | |_| | (_) |  _|  __/ | | | | |
  \____|\___/|_|  \___|_| |_|_|_|
 
-GoFenrir — A NetExec-like framework in Go, powered by TheManticoreProject/Manticore.
+GoFenrir: NetExec-like framework in Go, powered by TheManticoreProject/Manticore.
 `,
 }
 

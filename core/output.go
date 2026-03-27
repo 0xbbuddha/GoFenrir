@@ -1,38 +1,51 @@
 package core
 
-import "fmt"
+import (
+	"fmt"
 
-const (
-	colorReset  = "\033[0m"
-	colorGreen  = "\033[32m"
-	colorRed    = "\033[31m"
-	colorYellow = "\033[33m"
-	colorCyan   = "\033[36m"
+	"github.com/TheManticoreProject/Manticore/logger"
 )
 
-func PrintSuccess(proto, host string, port int, name, msg string) {
-	fmt.Printf("%s%-6s%s %-15s %-5d %-15s %s[+]%s %s\n",
-		colorCyan, proto, colorReset,
-		host, port, name,
-		colorGreen, colorReset,
-		msg,
-	)
+const (
+	ColorReset  = "\x1b[0m"
+	ColorGreen  = "\x1b[92m"
+	ColorRed    = "\x1b[91m"
+	ColorYellow = "\x1b[93m"
+	ColorBlue   = "\x1b[94m"
+)
+
+func Success(msg string) {
+	logger.Print(fmt.Sprintf("%s[+]%s %s", ColorGreen, ColorReset, msg))
 }
 
-func PrintFailure(proto, host string, port int, name, msg string) {
-	fmt.Printf("%s%-6s%s %-15s %-5d %-15s %s[-]%s %s\n",
-		colorCyan, proto, colorReset,
-		host, port, name,
-		colorRed, colorReset,
-		msg,
-	)
+func Failure(msg string) {
+	logger.Print(fmt.Sprintf("%s[-]%s %s", ColorRed, ColorReset, msg))
 }
 
-func PrintInfo(proto, host string, port int, name, msg string) {
-	fmt.Printf("%s%-6s%s %-15s %-5d %-15s %s[*]%s %s\n",
-		colorCyan, proto, colorReset,
-		host, port, name,
-		colorYellow, colorReset,
-		msg,
-	)
+func Section(title string, count int) {
+	logger.Print(fmt.Sprintf("[>] %s (%s%d%s):", title, ColorYellow, count, ColorReset))
+}
+
+func TreeEntry(name string, last bool) {
+	prefix := "├──"
+	if last {
+		prefix = "└──"
+	}
+	logger.Print(fmt.Sprintf("  %s %s%s%s", prefix, ColorBlue, name, ColorReset))
+}
+
+func TreeEntryColored(name, color string, last bool) {
+	prefix := "├──"
+	if last {
+		prefix = "└──"
+	}
+	logger.Print(fmt.Sprintf("  %s %s%s%s", prefix, color, name, ColorReset))
+}
+
+func TreeDetail(label, value string, last bool) {
+	prefix := "├──"
+	if last {
+		prefix = "└──"
+	}
+	logger.Print(fmt.Sprintf("      %s %s: %s%s%s", prefix, label, ColorYellow, value, ColorReset))
 }

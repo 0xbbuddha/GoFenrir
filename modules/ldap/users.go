@@ -2,6 +2,9 @@ package ldapmodules
 
 import (
 	"fmt"
+	"strconv"
+
+	"github.com/TheManticoreProject/Manticore/network/ldap/ldap_attributes"
 
 	"github.com/0xbbuddha/GoFenrir/protocols/ldap"
 )
@@ -9,7 +12,11 @@ import (
 type UserEntry struct {
 	SAMAccountName string
 	DN             string
-	Enabled        bool
+	UAC            ldap_attributes.UserAccountControl
+}
+
+func (u UserEntry) IsEnabled() bool {
+	return u.UAC&ldap_attributes.UAF_ACCOUNT_DISABLED == 0
 }
 
 func EnumUsers(s *ldap.Session) ([]UserEntry, error) {
@@ -24,12 +31,11 @@ func EnumUsers(s *ldap.Session) ([]UserEntry, error) {
 
 	var users []UserEntry
 	for _, entry := range entries {
-		uac := entry.GetAttributeValue("userAccountControl")
-		enabled := uac != "514" && uac != "66050"
+		uacVal, _ := strconv.ParseUint(entry.GetAttributeValue("userAccountControl"), 10, 32)
 		users = append(users, UserEntry{
 			SAMAccountName: entry.GetAttributeValue("sAMAccountName"),
 			DN:             entry.GetAttributeValue("distinguishedName"),
-			Enabled:        enabled,
+			UAC:            ldap_attributes.UserAccountControl(uacVal),
 		})
 	}
 	return users, nil
