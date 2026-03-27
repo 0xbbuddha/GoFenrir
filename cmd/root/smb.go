@@ -11,14 +11,14 @@ import (
 )
 
 var (
-	smbTarget        string
-	smbUsername      string
-	smbPassword      string
-	smbHash          string
-	smbDomain        string
-	smbPort          int
-	smbCheckShares   bool
-	smbNullSession   bool
+	smbTarget      string
+	smbUsername    string
+	smbPassword    string
+	smbHash        string
+	smbDomain      string
+	smbPort        int
+	smbCheckShares bool
+	smbNullSession bool
 )
 
 var smbCmd = &cobra.Command{
@@ -28,64 +28,105 @@ var smbCmd = &cobra.Command{
 }
 
 func runSMB(cmd *cobra.Command, args []string) {
-	if smbNullSession {
-		core.Section("Null Session Check", 1)
-		nullOk := smbmodules.CheckNullSession(smbTarget, smbPort)
-		ipcOk := smbmodules.CheckAnonymousIPCAccess(smbTarget, smbPort)
-		if nullOk {
-			core.TreeEntryColored("Null session allowed", core.ColorRed, false)
-		} else {
-			core.TreeEntryColored("Null session denied", core.ColorGreen, false)
-		}
-		if ipcOk {
-			core.TreeEntryColored("Anonymous IPC$ access allowed", core.ColorRed, true)
-		} else {
-			core.TreeEntryColored("Anonymous IPC$ access denied", core.ColorGreen, true)
-		}
-		return
-	}
-
-	session, err := smb.NewSession(smbTarget, smbPort, smbDomain, smbUsername, smbPassword, smbHash)
-	if err != nil {
-		core.Failure(fmt.Sprintf("[SMB] %s\\%s - %s", smbDomain, smbUsername, err.Error()))
+	if smbTarget == "" {
+		core.Failure("--target is required")
 		os.Exit(1)
 	}
 
-	authMsg := fmt.Sprintf("[SMB] %s\\%s%s%s", smbDomain, core.ColorGreen, smbUsername, core.ColorReset)
-	if smbHash != "" {
-		authMsg += fmt.Sprintf(" (Pass-the-Hash: %s%s%s)", core.ColorYellow, smbHash, core.ColorReset)
+	targets, err := core.ParseTargets(smbTarget)
+	if err != nil {
+		core.Failure(err.Error())
+		os.Exit(1)
 	}
-	core.Success(authMsg)
 
-	if smbCheckShares {
-		results := smbmodules.CheckShareAccess(session, smbmodules.CommonShares)
-		accessible := []smbmodules.ShareAccess{}
-		for _, r := range results {
-			if r.Accessible {
-				accessible = append(accessible, r)
-			}
+	if smbNullSession {
+		jobs := make([]core.Job, len(targets))
+		for i, t := range targets {
+			jobs[i] = core.Job{Target: t}
 		}
-		core.Section("Accessible Shares", len(accessible))
-		for i, r := range results {
-			last := i == len(results)-1
-			if r.Accessible {
-				core.TreeEntryColored(r.Name, core.ColorGreen, last)
+		core.RunConcurrent(jobs, Threads, func(job core.Job) {
+			out := &core.OutputBuffer{}
+			out.Section(fmt.Sprintf("Null Session - %s", job.Target), 1)
+			nullOk := smbmodules.CheckNullSession(job.Target, smbPort)
+			ipcOk := smbmodules.CheckAnonymousIPCAccess(job.Target, smbPort)
+			if nullOk {
+				out.TreeEntryColored("Null session allowed", core.ColorRed, false)
 			} else {
-				core.TreeEntryColored(r.Name+" (denied)", core.ColorRed, last)
+				out.TreeEntryColored("Null session denied", core.ColorGreen, false)
 			}
+			if ipcOk {
+				out.TreeEntryColored("Anonymous IPC$ access allowed", core.ColorRed, true)
+			} else {
+				out.TreeEntryColored("Anonymous IPC$ access denied", core.ColorGreen, true)
+			}
+			out.Flush()
+		})
+		return
+	}
+
+	creds, err := core.ParseCredentials(smbUsername, smbPassword, smbHash)
+	if err != nil {
+		core.Failure(err.Error())
+		os.Exit(1)
+	}
+
+	jobs := make([]core.Job, 0, len(targets)*len(creds))
+	for _, target := range targets {
+		for _, cred := range creds {
+			jobs = append(jobs, core.Job{Target: target, Cred: cred})
 		}
 	}
+
+	core.RunConcurrent(jobs, Threads, func(job core.Job) {
+		out := &core.OutputBuffer{}
+
+		session, err := smb.NewSession(job.Target, smbPort, smbDomain, job.Cred.Username, job.Cred.Password, job.Cred.Hash)
+		if err != nil {
+			out.Failure(fmt.Sprintf("[SMB] %s %s\\%s - %s", job.Target, smbDomain, job.Cred.Username, err.Error()))
+			out.Flush()
+			return
+		}
+
+		authMsg := fmt.Sprintf("[SMB] %s %s\\%s%s%s", job.Target, smbDomain, core.ColorGreen, job.Cred.Username, core.ColorReset)
+		if job.Cred.Hash != "" {
+			authMsg += fmt.Sprintf(" (Pass-the-Hash: %s%s%s)", core.ColorYellow, job.Cred.Hash, core.ColorReset)
+		}
+		out.Success(authMsg)
+
+		if smbCheckShares {
+			results := smbmodules.CheckShareAccess(session, smbmodules.CommonShares)
+			accessible := 0
+			for _, r := range results {
+				if r.Accessible {
+					accessible++
+				}
+			}
+			out.Section("Accessible Shares", accessible)
+			for i, r := range results {
+				last := i == len(results)-1
+				if r.Accessible {
+					out.TreeEntryColored(r.Name, core.ColorGreen, last)
+				} else {
+					out.TreeEntryColored(r.Name+" (denied)", core.ColorRed, last)
+				}
+			}
+		}
+
+		out.Flush()
+	})
 }
 
 func init() {
-	smbCmd.Flags().StringVarP(&smbTarget, "target", "t", "", "Target IP or hostname")
-	smbCmd.Flags().StringVarP(&smbUsername, "username", "u", "", "Username")
-	smbCmd.Flags().StringVarP(&smbPassword, "password", "p", "", "Password")
+	smbCmd.Flags().StringVarP(&smbTarget, "target", "t", "", "Target IP, hostname, CIDR, or file path")
+	smbCmd.Flags().StringVarP(&smbUsername, "username", "u", "", "Username or file of usernames")
+	smbCmd.Flags().StringVarP(&smbPassword, "password", "p", "", "Password or file of passwords")
 	smbCmd.Flags().StringVarP(&smbHash, "hash", "H", "", "NT hash (format: [LM:]NT)")
 	smbCmd.Flags().StringVarP(&smbDomain, "domain", "d", "", "Domain")
 	smbCmd.Flags().IntVar(&smbPort, "port", 445, "SMB port")
 	smbCmd.Flags().BoolVar(&smbCheckShares, "shares", false, "Check access to common shares")
 	smbCmd.Flags().BoolVar(&smbNullSession, "null-session", false, "Check for null/anonymous session")
+
+	smbCmd.MarkFlagRequired("target")
 
 	rootCmd.AddCommand(smbCmd)
 }

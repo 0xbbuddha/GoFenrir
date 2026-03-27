@@ -56,6 +56,16 @@ var rootCmd = &cobra.Command{
 		cmd.Help()
 		return nil
 	},
+	PersistentPreRunE: func(cmd *cobra.Command, args []string) error {
+		if LogFile != "" {
+			if err := core.SetLogFile(LogFile); err != nil {
+				return err
+			}
+		}
+		core.SetVerbose(Verbose)
+		core.SetDebug(Debug)
+		return nil
+	},
 }
 
 func customHelp(cmd *cobra.Command, args []string) {
