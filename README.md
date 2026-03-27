@@ -26,53 +26,61 @@ Protocol support grows alongside [TheManticoreProject/Manticore](https://github.
 ## Usage
 
 ```
-gofenrir <protocol> [options]
+gf <protocol> [options]
 ```
 
 ### LDAP
 
 ```bash
 # Auth check
-gofenrir ldap -t DC01.domain.local -u user -p 'Password123' -d domain.local
+gf ldap -t DC01.domain.local -u user -p 'Password123' -d domain.local
 
 # Pass-the-Hash
-gofenrir ldap -t DC01.domain.local -u user -H <NT_HASH> -d domain.local
+gf ldap -t DC01.domain.local -u user -H <NT_HASH> -d domain.local
 
 # Enumeration
-gofenrir ldap -t DC01.domain.local -u user -p 'Password123' -d domain.local --users
-gofenrir ldap -t DC01.domain.local -u user -p 'Password123' -d domain.local --groups
-gofenrir ldap -t DC01.domain.local -u user -p 'Password123' -d domain.local --dcs
-gofenrir ldap -t DC01.domain.local -u user -p 'Password123' -d domain.local --kerberoastable
-gofenrir ldap -t DC01.domain.local -u user -p 'Password123' -d domain.local --asreproast
-gofenrir ldap -t DC01.domain.local -u user -p 'Password123' -d domain.local --admins
-gofenrir ldap -t DC01.domain.local -u user -p 'Password123' -d domain.local --computers
-gofenrir ldap -t DC01.domain.local -u user -p 'Password123' -d domain.local --pwd-policy
-gofenrir ldap -t DC01.domain.local -u user -p 'Password123' -d domain.local --trusts
-gofenrir ldap -t DC01.domain.local -u user -p 'Password123' -d domain.local --gpos
-gofenrir ldap -t DC01.domain.local -u user -p 'Password123' -d domain.local --ous
+gf ldap -t DC01.domain.local -u user -p 'Password123' -d domain.local --users
+gf ldap -t DC01.domain.local -u user -p 'Password123' -d domain.local --groups
+gf ldap -t DC01.domain.local -u user -p 'Password123' -d domain.local --dcs
+gf ldap -t DC01.domain.local -u user -p 'Password123' -d domain.local --kerberoastable
+gf ldap -t DC01.domain.local -u user -p 'Password123' -d domain.local --asreproast
+gf ldap -t DC01.domain.local -u user -p 'Password123' -d domain.local --admins
+gf ldap -t DC01.domain.local -u user -p 'Password123' -d domain.local --computers
+gf ldap -t DC01.domain.local -u user -p 'Password123' -d domain.local --pwd-policy
+gf ldap -t DC01.domain.local -u user -p 'Password123' -d domain.local --trusts
+gf ldap -t DC01.domain.local -u user -p 'Password123' -d domain.local --gpos
+gf ldap -t DC01.domain.local -u user -p 'Password123' -d domain.local --ous
 ```
 
 ### SMB
 
 ```bash
 # Auth check
-gofenrir smb -t DC01.domain.local -u user -p 'Password123' -d domain.local
+gf smb -t DC01.domain.local -u user -p 'Password123' -d domain.local
 
 # Check share access
-gofenrir smb -t DC01.domain.local -u user -p 'Password123' -d domain.local --shares
+gf smb -t DC01.domain.local -u user -p 'Password123' -d domain.local --shares
 
 # Null session
-gofenrir smb -t DC01.domain.local --null-session
+gf smb -t DC01.domain.local --null-session
 ```
 
 > SMB currently uses Manticore's SMBv1 implementation. Modern Windows systems have SMBv1 disabled so it won't work against those. SMBv2/v3 support will come when Manticore implements it.
 
 ## Installation
 
+Via `go install` (recommandé, installe `gf` directement dans ton `$GOPATH/bin`) :
+
+```bash
+go install github.com/0xbbuddha/GoFenrir/cmd/gf@latest
+```
+
+Ou en buildant depuis les sources :
+
 ```bash
 git clone https://github.com/0xbbuddha/GoFenrir
 cd GoFenrir
-go build -o gofenrir ./cmd/
+go build -o gf ./cmd/gf/
 ```
 
 ## Built With
