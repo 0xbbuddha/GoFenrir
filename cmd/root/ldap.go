@@ -19,17 +19,20 @@ var (
 	ldapTLS      bool
 	ldapPort     int
 
-	ldapEnumUsers      bool
-	ldapEnumGroups     bool
-	ldapEnumDCs        bool
-	ldapEnumKerberoast bool
-	ldapEnumASREP      bool
-	ldapEnumAdmins     bool
-	ldapEnumComputers  bool
-	ldapEnumPwdPolicy  bool
-	ldapEnumTrusts     bool
-	ldapEnumGPOs       bool
-	ldapEnumOUs        bool
+	ldapEnumUsers              bool
+	ldapEnumGroups             bool
+	ldapEnumDCs                bool
+	ldapEnumKerberoast         bool
+	ldapEnumASREP              bool
+	ldapEnumAdmins             bool
+	ldapEnumComputers          bool
+	ldapEnumPwdPolicy          bool
+	ldapEnumTrusts             bool
+	ldapEnumGPOs               bool
+	ldapEnumOUs                bool
+	ldapEnumUnconstrainedDel   bool
+	ldapEnumConstrainedDel     bool
+	ldapEnumRBCD               bool
 )
 
 var ldapCmd = &cobra.Command{
@@ -252,6 +255,54 @@ func runLDAP(cmd *cobra.Command, args []string) {
 			}
 		}
 
+		if ldapEnumUnconstrainedDel {
+			accounts, err := ldapmodules.EnumUnconstrainedDelegation(session)
+			if err != nil {
+				out.Failure(err.Error())
+			} else {
+				out.Section("Unconstrained Delegation", len(accounts))
+				for i, a := range accounts {
+					label := fmt.Sprintf("%s (%s)", a.SAMAccountName, a.ObjectType)
+					out.TreeEntryColored(label, core.ColorRed, i == len(accounts)-1)
+				}
+			}
+		}
+
+		if ldapEnumConstrainedDel {
+			accounts, err := ldapmodules.EnumConstrainedDelegation(session)
+			if err != nil {
+				out.Failure(err.Error())
+			} else {
+				out.Section("Constrained Delegation", len(accounts))
+				for i, a := range accounts {
+					last := i == len(accounts)-1
+					label := a.SAMAccountName
+					color := core.ColorBlue
+					if a.ProtocolTransition {
+						label += " [Protocol Transition]"
+						color = core.ColorYellow
+					}
+					out.TreeEntryColored(label, color, last)
+					for j, svc := range a.AllowedServices {
+						out.TreeDetail("SPN", svc, j == len(a.AllowedServices)-1)
+					}
+				}
+			}
+		}
+
+		if ldapEnumRBCD {
+			entries, err := ldapmodules.EnumRBCD(session)
+			if err != nil {
+				out.Failure(err.Error())
+			} else {
+				out.Section("Resource-Based Constrained Delegation", len(entries))
+				for i, e := range entries {
+					label := fmt.Sprintf("%s (%s)", e.SAMAccountName, e.ObjectType)
+					out.TreeEntryColored(label, core.ColorYellow, i == len(entries)-1)
+				}
+			}
+		}
+
 		out.Flush()
 	})
 }
@@ -276,6 +327,9 @@ func init() {
 	ldapCmd.Flags().BoolVar(&ldapEnumTrusts, "trusts", false, "Enumerate domain trusts")
 	ldapCmd.Flags().BoolVar(&ldapEnumGPOs, "gpos", false, "Enumerate Group Policy Objects")
 	ldapCmd.Flags().BoolVar(&ldapEnumOUs, "ous", false, "Enumerate Organizational Units")
+	ldapCmd.Flags().BoolVar(&ldapEnumUnconstrainedDel, "unconstrained", false, "Find accounts with unconstrained delegation")
+	ldapCmd.Flags().BoolVar(&ldapEnumConstrainedDel, "constrained", false, "Find accounts with constrained delegation")
+	ldapCmd.Flags().BoolVar(&ldapEnumRBCD, "rbcd", false, "Find accounts with resource-based constrained delegation")
 
 	ldapCmd.MarkFlagRequired("target")
 	ldapCmd.MarkFlagRequired("username")
