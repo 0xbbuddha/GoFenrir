@@ -33,6 +33,9 @@ var (
 	ldapEnumUnconstrainedDel   bool
 	ldapEnumConstrainedDel     bool
 	ldapEnumRBCD               bool
+	ldapEnumADCS               bool
+	ldapEnumShadowCreds        bool
+	ldapEnumWeakAccounts       bool
 )
 
 var ldapCmd = &cobra.Command{
@@ -303,6 +306,86 @@ func runLDAP(cmd *cobra.Command, args []string) {
 			}
 		}
 
+		if ldapEnumADCS {
+			cas, templates, err := ldapmodules.EnumADCS(session)
+			if err != nil {
+				out.Failure(err.Error())
+			} else {
+				out.Section("Certificate Authorities", len(cas))
+				for i, ca := range cas {
+					out.TreeEntryColored(fmt.Sprintf("%s (%s)", ca.Name, ca.DNSHostname), core.ColorBlue, i == len(cas)-1)
+					for j, t := range ca.Templates {
+						out.TreeDetail("Template", t, j == len(ca.Templates)-1)
+					}
+				}
+
+				esc1 := []ldapmodules.TemplateEntry{}
+				for _, t := range templates {
+					if t.IsESC1 {
+						esc1 = append(esc1, t)
+					}
+				}
+				out.Section("ADCS Enabled Templates", len(templates))
+				for i, t := range templates {
+					last := i == len(templates)-1
+					color := core.ColorBlue
+					label := t.Name
+					if t.IsESC1 {
+						color = core.ColorRed
+						label += " [ESC1]"
+					}
+					out.TreeEntryColored(label, color, last)
+					for j, eku := range t.EKUs {
+						out.TreeDetail("EKU", eku, j == len(t.EKUs)-1)
+					}
+				}
+				if len(esc1) > 0 {
+					out.Section("ESC1 Vulnerable Templates", len(esc1))
+					for i, t := range esc1 {
+						out.TreeEntryColored(t.Name, core.ColorRed, i == len(esc1)-1)
+						out.TreeDetail("DN", t.DN, true)
+					}
+				}
+			}
+		}
+
+		if ldapEnumShadowCreds {
+			entries, err := ldapmodules.EnumShadowCreds(session)
+			if err != nil {
+				out.Failure(err.Error())
+			} else {
+				out.Section("Shadow Credentials", len(entries))
+				for i, e := range entries {
+					last := i == len(entries)-1
+					label := fmt.Sprintf("%s (%s)", e.SAMAccountName, e.ObjectType)
+					out.TreeEntryColored(label, core.ColorYellow, last)
+					for j, k := range e.Keys {
+						lastKey := j == len(e.Keys)-1
+						out.TreeDetail("Key ID", k.Identifier, false)
+						out.TreeDetail("Usage", k.Usage, false)
+						out.TreeDetail("Source", k.Source, false)
+						out.TreeDetail("Created", k.CreationTime, lastKey)
+					}
+				}
+			}
+		}
+
+		if ldapEnumWeakAccounts {
+			entries, err := ldapmodules.EnumWeakAccounts(session)
+			if err != nil {
+				out.Failure(err.Error())
+			} else {
+				out.Section("Weak Accounts", len(entries))
+				for i, e := range entries {
+					last := i == len(entries)-1
+					out.TreeEntryColored(e.SAMAccountName, core.ColorYellow, last)
+					for j, f := range e.Flags {
+						out.TreeDetail("Flag", f, j == len(e.Flags)-1)
+					}
+				}
+			}
+		}
+
 		out.Flush()
 	})
 }
@@ -330,6 +413,9 @@ func init() {
 	ldapCmd.Flags().BoolVar(&ldapEnumUnconstrainedDel, "unconstrained", false, "Find accounts with unconstrained delegation")
 	ldapCmd.Flags().BoolVar(&ldapEnumConstrainedDel, "constrained", false, "Find accounts with constrained delegation")
 	ldapCmd.Flags().BoolVar(&ldapEnumRBCD, "rbcd", false, "Find accounts with resource-based constrained delegation")
+	ldapCmd.Flags().BoolVar(&ldapEnumADCS, "adcs", false, "Enumerate ADCS certificate authorities and templates (detects ESC1)")
+	ldapCmd.Flags().BoolVar(&ldapEnumShadowCreds, "shadow-creds", false, "Find objects with shadow credentials (msDS-KeyCredentialLink)")
+	ldapCmd.Flags().BoolVar(&ldapEnumWeakAccounts, "weak-accounts", false, "Find accounts with weak UAC flags (no password required, reversible encryption, DES, etc.)")
 
 	ldapCmd.MarkFlagRequired("target")
 	ldapCmd.MarkFlagRequired("username")
