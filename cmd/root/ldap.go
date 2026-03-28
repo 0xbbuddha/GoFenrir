@@ -36,6 +36,9 @@ var (
 	ldapEnumADCS               bool
 	ldapEnumShadowCreds        bool
 	ldapEnumWeakAccounts       bool
+	ldapEnumDomainInfo         bool
+	ldapEnumPrivilegedGroups   bool
+	ldapEnumAdminCount         bool
 )
 
 var ldapCmd = &cobra.Command{
@@ -319,12 +322,6 @@ func runLDAP(cmd *cobra.Command, args []string) {
 					}
 				}
 
-				esc1 := []ldapmodules.TemplateEntry{}
-				for _, t := range templates {
-					if t.IsESC1 {
-						esc1 = append(esc1, t)
-					}
-				}
 				out.Section("ADCS Enabled Templates", len(templates))
 				for i, t := range templates {
 					last := i == len(templates)-1
@@ -333,16 +330,41 @@ func runLDAP(cmd *cobra.Command, args []string) {
 					if t.IsESC1 {
 						color = core.ColorRed
 						label += " [ESC1]"
+					} else if t.IsESC2 {
+						color = core.ColorRed
+						label += " [ESC2]"
+					} else if t.IsESC3 {
+						color = core.ColorYellow
+						label += " [ESC3]"
 					}
 					out.TreeEntryColored(label, color, last)
 					for j, eku := range t.EKUs {
 						out.TreeDetail("EKU", eku, j == len(t.EKUs)-1)
 					}
 				}
-				if len(esc1) > 0 {
-					out.Section("ESC1 Vulnerable Templates", len(esc1))
-					for i, t := range esc1 {
-						out.TreeEntryColored(t.Name, core.ColorRed, i == len(esc1)-1)
+
+				var vulnTemplates []ldapmodules.TemplateEntry
+				for _, t := range templates {
+					if t.IsESC1 || t.IsESC2 || t.IsESC3 {
+						vulnTemplates = append(vulnTemplates, t)
+					}
+				}
+				if len(vulnTemplates) > 0 {
+					out.Section("Vulnerable Templates (ESC1/ESC2/ESC3)", len(vulnTemplates))
+					for i, t := range vulnTemplates {
+						last := i == len(vulnTemplates)-1
+						tag := ""
+						color := core.ColorYellow
+						if t.IsESC1 {
+							tag = "[ESC1]"
+							color = core.ColorRed
+						} else if t.IsESC2 {
+							tag = "[ESC2]"
+							color = core.ColorRed
+						} else if t.IsESC3 {
+							tag = "[ESC3]"
+						}
+						out.TreeEntryColored(fmt.Sprintf("%s %s", t.Name, tag), color, last)
 						out.TreeDetail("DN", t.DN, true)
 					}
 				}
@@ -386,6 +408,62 @@ func runLDAP(cmd *cobra.Command, args []string) {
 			}
 		}
 
+		if ldapEnumDomainInfo {
+			info, err := ldapmodules.GetDomainInfo(session, ldapDomain)
+			if err != nil {
+				out.Failure(err.Error())
+			} else {
+				out.Section("Domain Information", 1)
+				out.TreeDetail("DNS Name", info.DNSName, false)
+				out.TreeDetail("NetBIOS", info.NetBIOSName, false)
+				out.TreeDetail("SID", info.SID, false)
+				out.TreeDetail("Functional Level", info.FunctionalLevel, false)
+				out.TreeDetail("PDC", info.PDC, false)
+				out.TreeDetail("DN", info.DN, false)
+				for j, ns := range info.NamingContexts {
+					out.TreeDetail("Naming Context", ns, false)
+					_ = j
+				}
+				for j, dns := range info.DNSServers {
+					out.TreeDetail("DNS Server", dns, j == len(info.DNSServers)-1)
+				}
+			}
+		}
+
+		if ldapEnumPrivilegedGroups {
+			groups, err := ldapmodules.EnumPrivilegedGroups(session, ldapDomain)
+			if err != nil {
+				out.Failure(err.Error())
+			} else {
+				out.Section("Privileged Groups", len(groups))
+				for i, g := range groups {
+					last := i == len(groups)-1
+					out.TreeEntryColored(fmt.Sprintf("%s (%d member(s))", g.Name, len(g.Members)), core.ColorRed, last)
+					for j, m := range g.Members {
+						out.TreeDetail("Member", m, j == len(g.Members)-1)
+					}
+				}
+			}
+		}
+
+		if ldapEnumAdminCount {
+			entries, err := ldapmodules.EnumAdminCount(session)
+			if err != nil {
+				out.Failure(err.Error())
+			} else {
+				out.Section("AdminCount=1 Objects (AdminSDHolder protected)", len(entries))
+				for i, e := range entries {
+					last := i == len(entries)-1
+					label := fmt.Sprintf("%s (%s)", e.SAMAccountName, e.ObjectType)
+					color := core.ColorYellow
+					if e.ObjectType == "group" {
+						color = core.ColorRed
+					}
+					out.TreeEntryColored(label, color, last)
+				}
+			}
+		}
+
 		out.Flush()
 	})
 }
@@ -416,6 +494,9 @@ func init() {
 	ldapCmd.Flags().BoolVar(&ldapEnumADCS, "adcs", false, "Enumerate ADCS certificate authorities and templates (detects ESC1)")
 	ldapCmd.Flags().BoolVar(&ldapEnumShadowCreds, "shadow-creds", false, "Find objects with shadow credentials (msDS-KeyCredentialLink)")
 	ldapCmd.Flags().BoolVar(&ldapEnumWeakAccounts, "weak-accounts", false, "Find accounts with weak UAC flags (no password required, reversible encryption, DES, etc.)")
+	ldapCmd.Flags().BoolVar(&ldapEnumDomainInfo, "domain-info", false, "Get domain info (functional level, SID, PDC, DNS servers, naming contexts)")
+	ldapCmd.Flags().BoolVar(&ldapEnumPrivilegedGroups, "privileged-groups", false, "Enumerate privileged groups and their members (Domain Admins, Enterprise Admins, etc.)")
+	ldapCmd.Flags().BoolVar(&ldapEnumAdminCount, "admin-count", false, "Find objects with adminCount=1 (AdminSDHolder protected)")
 
 	ldapCmd.MarkFlagRequired("target")
 	ldapCmd.MarkFlagRequired("username")

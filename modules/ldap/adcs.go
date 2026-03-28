@@ -16,11 +16,12 @@ type CAEntry struct {
 }
 
 type TemplateEntry struct {
-	Name             string
-	DN               string
-	EKUs             []string
-	IsESC1           bool
-	ESC1MissingCond  string // non-empty if ESC1 is NOT met, explains why
+	Name   string
+	DN     string
+	EKUs   []string
+	IsESC1 bool
+	IsESC2 bool
+	IsESC3 bool
 }
 
 // EnumADCS enumerates Certificate Authorities and enabled certificate templates.
@@ -102,11 +103,33 @@ func EnumADCS(s *ldap.Session) ([]CAEntry, []TemplateEntry, error) {
 
 		isESC1 := enrolleeSuppliesSub && hasClientAuth && !requiresApproval && raSignature == 0
 
+		// ESC2: Any Purpose EKU or no EKU restriction + no approval + no issuance requirements
+		hasAnyPurpose := false
+		for _, eku := range ekus {
+			if eku == ldapattrs.EKU_ANY {
+				hasAnyPurpose = true
+				break
+			}
+		}
+		isESC2 := (hasAnyPurpose || len(ekus) == 0) && !requiresApproval && raSignature == 0 && !isESC1
+
+		// ESC3: Certificate Request Agent EKU (allows requesting certs on behalf of other users)
+		hasCertRequestAgent := false
+		for _, eku := range ekus {
+			if eku == ldapattrs.EKU_CERTIFICATE_REQUEST_AGENT {
+				hasCertRequestAgent = true
+				break
+			}
+		}
+		isESC3 := hasCertRequestAgent && !requiresApproval && raSignature == 0
+
 		templates = append(templates, TemplateEntry{
-			Name:    name,
-			DN:      entry.GetAttributeValue("distinguishedName"),
-			EKUs:    ekus,
-			IsESC1:  isESC1,
+			Name:   name,
+			DN:     entry.GetAttributeValue("distinguishedName"),
+			EKUs:   ekus,
+			IsESC1: isESC1,
+			IsESC2: isESC2,
+			IsESC3: isESC3,
 		})
 	}
 
