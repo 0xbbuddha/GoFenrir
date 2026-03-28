@@ -7,6 +7,7 @@ import (
 
 	"github.com/0xbbuddha/GoFenrir/core"
 	"github.com/spf13/cobra"
+	"github.com/spf13/pflag"
 )
 
 var (
@@ -74,8 +75,35 @@ func customHelp(cmd *cobra.Command, args []string) {
 	fmt.Printf("    "+cyan+"Codename"+reset+" : "+bold+"%s"+reset+"\n", core.Codename)
 	fmt.Printf("    "+cyan+"Commit"+reset+"   : %s\n\n", getCommit())
 
-	fmt.Printf(blue+bold+"Usage:"+reset+"\n  gf [protocol] [flags]\n\n")
+	// Subcommand help: show usage + flags for that specific command
+	if cmd.Name() != "gf" {
+		fmt.Printf(blue+bold+"Usage:"+reset+"\n  %s\n\n", cmd.UseLine())
+		if cmd.Short != "" {
+			fmt.Printf("%s\n\n", cmd.Short)
+		}
+		fmt.Println(blue + bold + "Flags:" + reset)
+		cmd.Flags().VisitAll(func(f *pflag.Flag) {
+			if f.Name == "help" {
+				return
+			}
+			if f.Value.Type() == "bool" {
+				fmt.Printf("      --%-30s %s\n", f.Name, f.Usage)
+			} else {
+				fmt.Printf("      --%-22s %s %s\n", f.Name+" "+f.Value.Type(), f.Usage, cyan+"(default: "+f.DefValue+")"+reset)
+			}
+		})
+		fmt.Println("\n" + blue + bold + "Global Flags:" + reset)
+		fmt.Println("      --threads int       Number of concurrent threads (default 1)")
+		fmt.Println("      --timeout int       Timeout per thread in seconds (default 30)")
+		fmt.Println("      --log string        Export output to a file")
+		fmt.Println("      --verbose           Verbose output")
+		fmt.Println("      --debug             Debug output")
+		fmt.Println("  -h, --help              Show this help")
+		return
+	}
 
+	// Root help
+	fmt.Printf(blue+bold+"Usage:"+reset+"\n  gf [protocol] [flags]\n\n")
 	fmt.Println(blue + bold + "Available Protocols:" + reset)
 	for _, sub := range cmd.Commands() {
 		if sub.Name() == "help" || sub.Name() == "completion" {
@@ -83,14 +111,12 @@ func customHelp(cmd *cobra.Command, args []string) {
 		}
 		fmt.Printf("  "+cyan+"%-10s"+reset+" %s\n", sub.Name(), sub.Short)
 	}
-
 	fmt.Println(blue + bold + "\nGlobal Flags:" + reset)
 	fmt.Println("  -t, --target string     Target IP or hostname")
 	fmt.Println("  -u, --username string   Username")
 	fmt.Println("  -p, --password string   Password")
 	fmt.Println("  -H, --hash string       NT hash (format: [LM:]NT)")
 	fmt.Println("  -d, --domain string     Domain")
-
 	fmt.Println(blue + bold + "\nOptions:" + reset)
 	fmt.Println("      --threads int       Number of concurrent threads (default 1)")
 	fmt.Println("      --timeout int       Timeout per thread in seconds (default 30)")
