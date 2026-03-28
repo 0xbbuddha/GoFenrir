@@ -476,27 +476,51 @@ func init() {
 	ldapCmd.Flags().StringVarP(&ldapDomain, "domain", "d", "", "Domain")
 	ldapCmd.Flags().BoolVar(&ldapTLS, "tls", false, "Use LDAPS (TLS, port 636)")
 	ldapCmd.Flags().IntVar(&ldapPort, "port", 389, "LDAP port")
+	for _, f := range []string{"target", "username", "password", "hash", "domain", "tls", "port"} {
+		ldapCmd.Flags().SetAnnotation(f, "group", []string{"Connection"})
+	}
 
 	ldapCmd.Flags().BoolVar(&ldapEnumUsers, "users", false, "Enumerate users")
 	ldapCmd.Flags().BoolVar(&ldapEnumGroups, "groups", false, "Enumerate groups")
 	ldapCmd.Flags().BoolVar(&ldapEnumDCs, "dcs", false, "Enumerate domain controllers")
-	ldapCmd.Flags().BoolVar(&ldapEnumKerberoast, "kerberoastable", false, "Find kerberoastable accounts")
-	ldapCmd.Flags().BoolVar(&ldapEnumASREP, "asreproast", false, "Find AS-REP roastable accounts")
 	ldapCmd.Flags().BoolVar(&ldapEnumAdmins, "admins", false, "Enumerate domain admins")
-	ldapCmd.Flags().BoolVar(&ldapEnumComputers, "computers", false, "Enumerate computer accounts")
+	ldapCmd.Flags().BoolVar(&ldapEnumComputers, "computers", false, "Enumerate computer accounts with OS info")
 	ldapCmd.Flags().BoolVar(&ldapEnumPwdPolicy, "pwd-policy", false, "Get password policy")
 	ldapCmd.Flags().BoolVar(&ldapEnumTrusts, "trusts", false, "Enumerate domain trusts")
 	ldapCmd.Flags().BoolVar(&ldapEnumGPOs, "gpos", false, "Enumerate Group Policy Objects")
 	ldapCmd.Flags().BoolVar(&ldapEnumOUs, "ous", false, "Enumerate Organizational Units")
-	ldapCmd.Flags().BoolVar(&ldapEnumUnconstrainedDel, "unconstrained", false, "Find accounts with unconstrained delegation")
-	ldapCmd.Flags().BoolVar(&ldapEnumConstrainedDel, "constrained", false, "Find accounts with constrained delegation")
-	ldapCmd.Flags().BoolVar(&ldapEnumRBCD, "rbcd", false, "Find accounts with resource-based constrained delegation")
-	ldapCmd.Flags().BoolVar(&ldapEnumADCS, "adcs", false, "Enumerate ADCS certificate authorities and templates (detects ESC1)")
-	ldapCmd.Flags().BoolVar(&ldapEnumShadowCreds, "shadow-creds", false, "Find objects with shadow credentials (msDS-KeyCredentialLink)")
-	ldapCmd.Flags().BoolVar(&ldapEnumWeakAccounts, "weak-accounts", false, "Find accounts with weak UAC flags (no password required, reversible encryption, DES, etc.)")
+	for _, f := range []string{"users", "groups", "dcs", "admins", "computers", "pwd-policy", "trusts", "gpos", "ous"} {
+		ldapCmd.Flags().SetAnnotation(f, "group", []string{"Enumeration"})
+	}
+
 	ldapCmd.Flags().BoolVar(&ldapEnumDomainInfo, "domain-info", false, "Get domain info (functional level, SID, PDC, DNS servers, naming contexts)")
 	ldapCmd.Flags().BoolVar(&ldapEnumPrivilegedGroups, "privileged-groups", false, "Enumerate privileged groups and their members (Domain Admins, Enterprise Admins, etc.)")
 	ldapCmd.Flags().BoolVar(&ldapEnumAdminCount, "admin-count", false, "Find objects with adminCount=1 (AdminSDHolder protected)")
+	for _, f := range []string{"domain-info", "privileged-groups", "admin-count"} {
+		ldapCmd.Flags().SetAnnotation(f, "group", []string{"Domain"})
+	}
+
+	ldapCmd.Flags().BoolVar(&ldapEnumKerberoast, "kerberoastable", false, "Find kerberoastable accounts (SPN-based)")
+	ldapCmd.Flags().BoolVar(&ldapEnumASREP, "asreproast", false, "Find AS-REP roastable accounts (pre-auth disabled)")
+	for _, f := range []string{"kerberoastable", "asreproast"} {
+		ldapCmd.Flags().SetAnnotation(f, "group", []string{"Kerberos"})
+	}
+
+	ldapCmd.Flags().BoolVar(&ldapEnumUnconstrainedDel, "unconstrained", false, "Find accounts with unconstrained delegation (excludes DCs)")
+	ldapCmd.Flags().BoolVar(&ldapEnumConstrainedDel, "constrained", false, "Find accounts with constrained delegation + SPNs")
+	ldapCmd.Flags().BoolVar(&ldapEnumRBCD, "rbcd", false, "Find accounts with resource-based constrained delegation configured")
+	for _, f := range []string{"unconstrained", "constrained", "rbcd"} {
+		ldapCmd.Flags().SetAnnotation(f, "group", []string{"Delegation"})
+	}
+
+	ldapCmd.Flags().BoolVar(&ldapEnumADCS, "adcs", false, "Enumerate CAs and templates, detect ESC1/ESC2/ESC3")
+	ldapCmd.Flags().SetAnnotation("adcs", "group", []string{"ADCS"})
+
+	ldapCmd.Flags().BoolVar(&ldapEnumShadowCreds, "shadow-creds", false, "Find objects with shadow credentials (msDS-KeyCredentialLink)")
+	ldapCmd.Flags().BoolVar(&ldapEnumWeakAccounts, "weak-accounts", false, "Find accounts with dangerous UAC flags (no pwd required, reversible encryption, DES...)")
+	for _, f := range []string{"shadow-creds", "weak-accounts"} {
+		ldapCmd.Flags().SetAnnotation(f, "group", []string{"Credential Attacks"})
+	}
 
 	ldapCmd.MarkFlagRequired("target")
 	ldapCmd.MarkFlagRequired("username")

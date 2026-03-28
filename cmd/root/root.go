@@ -75,30 +75,65 @@ func customHelp(cmd *cobra.Command, args []string) {
 	fmt.Printf("    "+cyan+"Codename"+reset+" : "+bold+"%s"+reset+"\n", core.Codename)
 	fmt.Printf("    "+cyan+"Commit"+reset+"   : %s\n\n", getCommit())
 
-	// Subcommand help: show usage + flags for that specific command
+	// Subcommand help: show usage + flags grouped by category
 	if cmd.Name() != "gf" {
 		fmt.Printf(blue+bold+"Usage:"+reset+"\n  %s\n\n", cmd.UseLine())
 		if cmd.Short != "" {
 			fmt.Printf("%s\n\n", cmd.Short)
 		}
-		fmt.Println(blue + bold + "Flags:" + reset)
-		cmd.Flags().VisitAll(func(f *pflag.Flag) {
+
+		// Collect flags by group, preserving definition order within each group
+		groupOrder := []string{"Connection", "Enumeration", "Domain", "Kerberos", "Delegation", "ADCS", "Credential Attacks"}
+		groups := map[string][]*pflag.Flag{}
+		cmd.LocalFlags().VisitAll(func(f *pflag.Flag) {
 			if f.Name == "help" {
 				return
 			}
-			if f.Value.Type() == "bool" {
-				fmt.Printf("      --%-30s %s\n", f.Name, f.Usage)
-			} else {
-				fmt.Printf("      --%-22s %s %s\n", f.Name+" "+f.Value.Type(), f.Usage, cyan+"(default: "+f.DefValue+")"+reset)
+			group := "Other"
+			if g, ok := f.Annotations["group"]; ok && len(g) > 0 {
+				group = g[0]
 			}
+			groups[group] = append(groups[group], f)
 		})
-		fmt.Println("\n" + blue + bold + "Global Flags:" + reset)
-		fmt.Println("      --threads int       Number of concurrent threads (default 1)")
-		fmt.Println("      --timeout int       Timeout per thread in seconds (default 30)")
-		fmt.Println("      --log string        Export output to a file")
-		fmt.Println("      --verbose           Verbose output")
-		fmt.Println("      --debug             Debug output")
-		fmt.Println("  -h, --help              Show this help")
+		// Append any groups not in the predefined order
+		seen := map[string]bool{}
+		for _, g := range groupOrder {
+			seen[g] = true
+		}
+		for g := range groups {
+			if !seen[g] {
+				groupOrder = append(groupOrder, g)
+			}
+		}
+
+		for _, groupName := range groupOrder {
+			flags, ok := groups[groupName]
+			if !ok || len(flags) == 0 {
+				continue
+			}
+			fmt.Printf("\n%s%s:%s\n", blue+bold, groupName, reset)
+			for _, f := range flags {
+				shorthand := ""
+				if f.Shorthand != "" {
+					shorthand = fmt.Sprintf("-%s, ", f.Shorthand)
+				} else {
+					shorthand = "    "
+				}
+				if f.Value.Type() == "bool" {
+					fmt.Printf("  %s--%-30s %s\n", shorthand, f.Name, f.Usage)
+				} else {
+					fmt.Printf("  %s--%-22s %s\n", shorthand, f.Name+" "+f.Value.Type(), f.Usage)
+				}
+			}
+		}
+
+		fmt.Printf("\n%sGlobal:%s\n", blue+bold, reset)
+		fmt.Println("      --threads int             Number of concurrent threads (default 1)")
+		fmt.Println("      --timeout int             Timeout per thread in seconds (default 30)")
+		fmt.Println("      --log string              Export output to a file")
+		fmt.Println("      --verbose                 Verbose output")
+		fmt.Println("      --debug                   Debug output")
+		fmt.Println("  -h, --help                    Show this help")
 		return
 	}
 

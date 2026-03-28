@@ -123,8 +123,15 @@ func init() {
 	smbCmd.Flags().StringVarP(&smbHash, "hash", "H", "", "NT hash (format: [LM:]NT)")
 	smbCmd.Flags().StringVarP(&smbDomain, "domain", "d", "", "Domain")
 	smbCmd.Flags().IntVar(&smbPort, "port", 445, "SMB port")
-	smbCmd.Flags().BoolVar(&smbCheckShares, "shares", false, "Check access to common shares")
+	for _, f := range []string{"target", "username", "password", "hash", "domain", "port"} {
+		smbCmd.Flags().SetAnnotation(f, "group", []string{"Connection"})
+	}
+
+	smbCmd.Flags().BoolVar(&smbCheckShares, "shares", false, "Enumerate shares and check access")
 	smbCmd.Flags().BoolVar(&smbNullSession, "null-session", false, "Check for null/anonymous session")
+	for _, f := range []string{"shares", "null-session"} {
+		smbCmd.Flags().SetAnnotation(f, "group", []string{"Enumeration"})
+	}
 
 	smbCmd.MarkFlagRequired("target")
 
