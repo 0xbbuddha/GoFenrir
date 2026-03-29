@@ -22,6 +22,7 @@ type TemplateEntry struct {
 	IsESC1 bool
 	IsESC2 bool
 	IsESC3 bool
+	IsESC9 bool
 }
 
 // EnumADCS enumerates Certificate Authorities and enabled certificate templates.
@@ -123,6 +124,13 @@ func EnumADCS(s *ldap.Session) ([]CAEntry, []TemplateEntry, error) {
 		}
 		isESC3 := hasCertRequestAgent && !requiresApproval && raSignature == 0
 
+		// ESC9: CT_FLAG_NO_SECURITY_EXTENSION — CA won't embed szOID_NTDS_CA_SECURITY_EXT in the
+		// issued certificate. Without this SID-binding extension, an attacker with GenericWrite over
+		// a victim can change the victim's UPN, enroll a certificate, revert the UPN, and then
+		// authenticate as the victim via PKINIT (CVE-2022-26923 variant).
+		noSecurityExtension := (enrollFlag & int64(ldapattrs.MSPKI_ENROLLMENT_FLAG_NO_SECURITY_EXTENSION)) != 0
+		isESC9 := noSecurityExtension && hasClientAuth && !requiresApproval && raSignature == 0
+
 		templates = append(templates, TemplateEntry{
 			Name:   name,
 			DN:     entry.GetAttributeValue("distinguishedName"),
@@ -130,6 +138,7 @@ func EnumADCS(s *ldap.Session) ([]CAEntry, []TemplateEntry, error) {
 			IsESC1: isESC1,
 			IsESC2: isESC2,
 			IsESC3: isESC3,
+			IsESC9: isESC9,
 		})
 	}
 
