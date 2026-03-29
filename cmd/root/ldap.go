@@ -336,6 +336,9 @@ func runLDAP(cmd *cobra.Command, args []string) {
 					} else if t.IsESC3 {
 						color = core.ColorYellow
 						label += " [ESC3]"
+					} else if t.IsESC4 {
+						color = core.ColorRed
+						label += " [ESC4]"
 					} else if t.IsESC9 {
 						color = core.ColorYellow
 						label += " [ESC9]"
@@ -348,12 +351,12 @@ func runLDAP(cmd *cobra.Command, args []string) {
 
 				var vulnTemplates []ldapmodules.TemplateEntry
 				for _, t := range templates {
-					if t.IsESC1 || t.IsESC2 || t.IsESC3 || t.IsESC9 {
+					if t.IsESC1 || t.IsESC2 || t.IsESC3 || t.IsESC4 || t.IsESC9 {
 						vulnTemplates = append(vulnTemplates, t)
 					}
 				}
 				if len(vulnTemplates) > 0 {
-					out.Section("Vulnerable Templates (ESC1/ESC2/ESC3/ESC9)", len(vulnTemplates))
+					out.Section("Vulnerable Templates (ESC1/ESC2/ESC3/ESC4/ESC9)", len(vulnTemplates))
 					for i, t := range vulnTemplates {
 						last := i == len(vulnTemplates)-1
 						tag := ""
@@ -366,11 +369,17 @@ func runLDAP(cmd *cobra.Command, args []string) {
 							color = core.ColorRed
 						} else if t.IsESC3 {
 							tag = "[ESC3]"
+						} else if t.IsESC4 {
+							tag = "[ESC4]"
+							color = core.ColorRed
 						} else if t.IsESC9 {
 							tag = "[ESC9]"
 						}
 						out.TreeEntryColored(fmt.Sprintf("%s %s", t.Name, tag), color, last)
-						out.TreeDetail("DN", t.DN, true)
+						out.TreeDetail("DN", t.DN, false)
+						for j, p := range t.ESC4Principals {
+							out.TreeDetail("Write access", p, j == len(t.ESC4Principals)-1)
+						}
 					}
 				}
 			}
@@ -518,7 +527,7 @@ func init() {
 		ldapCmd.Flags().SetAnnotation(f, "group", []string{"Delegation"})
 	}
 
-	ldapCmd.Flags().BoolVar(&ldapEnumADCS, "adcs", false, "Enumerate CAs and templates, detect ESC1/ESC2/ESC3/ESC9")
+	ldapCmd.Flags().BoolVar(&ldapEnumADCS, "adcs", false, "Enumerate CAs and templates, detect ESC1/ESC2/ESC3/ESC4/ESC9")
 	ldapCmd.Flags().SetAnnotation("adcs", "group", []string{"ADCS"})
 
 	ldapCmd.Flags().BoolVar(&ldapEnumShadowCreds, "shadow-creds", false, "Find objects with shadow credentials (msDS-KeyCredentialLink)")
