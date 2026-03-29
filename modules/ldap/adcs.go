@@ -158,7 +158,7 @@ func EnumADCS(s *ldap.Session) ([]CAEntry, []TemplateEntry, error) {
 
 // checkESC4 fetches the nTSecurityDescriptor of the template and returns any non-admin
 // principals that hold dangerous write rights (GenericAll, GenericWrite, WriteDacl,
-// WriteOwner, or WriteProperty).
+// WriteOwner, or WriteProperty on non-object ACEs).
 func checkESC4(s *ldap.Session, dn string) (bool, []string) {
 	sdRaw, err := s.LdapSession.GetNtSecurityDescriptorOf(dn)
 	if err != nil {
@@ -170,21 +170,9 @@ func checkESC4(s *ldap.Session, dn string) (bool, []string) {
 		return false, nil
 	}
 
-	const (
-		maskGenericAll    = 0x10000000
-		maskGenericWrite  = 0x20000000
-		maskWriteDacl     = 0x00040000
-		maskWriteOwner    = 0x00080000
-		maskWriteProperty = 0x00000020 // ADS_RIGHT_DS_WRITE_PROP
-	)
-	dangerous := uint32(maskGenericAll | maskGenericWrite | maskWriteDacl | maskWriteOwner | maskWriteProperty)
-
 	var principals []string
 	seen := map[string]bool{}
 	for _, ace := range aces {
-		if ace.AccessMask&dangerous == 0 {
-			continue
-		}
 		if isPrivilegedSID(ace.SID) {
 			continue
 		}
@@ -201,7 +189,8 @@ func checkESC4(s *ldap.Session, dn string) (bool, []string) {
 // hold write rights on certificate templates.
 func isPrivilegedSID(sid string) bool {
 	switch sid {
-	case "S-1-5-18",   // SYSTEM
+	case "S-1-5-9",    // Enterprise Domain Controllers
+		"S-1-5-18",    // SYSTEM
 		"S-1-5-32-544", // BUILTIN\Administrators
 		"S-1-3-0":      // CREATOR OWNER
 		return true
@@ -211,7 +200,8 @@ func isPrivilegedSID(sid string) bool {
 		parts := strings.Split(sid, "-")
 		if len(parts) > 0 {
 			switch parts[len(parts)-1] {
-			case "512", // Domain Admins
+			case "500", // Built-in Administrator
+				"512", // Domain Admins
 				"516", // Domain Controllers
 				"518", // Schema Admins
 				"519": // Enterprise Admins
@@ -265,6 +255,19 @@ func parseDACL(sd []byte) ([]aceEntry, error) {
 		return nil, fmt.Errorf("ACL size exceeds descriptor length")
 	}
 
+	const (
+		maskGenericAll   = uint32(0x10000000)
+		maskGenericWrite = uint32(0x20000000)
+		maskWriteDacl    = uint32(0x00040000)
+		maskWriteOwner   = uint32(0x00080000)
+		maskWriteProp    = uint32(0x00000020) // ADS_RIGHT_DS_WRITE_PROP
+	)
+	// For non-object ACEs, all five rights are dangerous.
+	// For object ACEs, WriteProperty is scoped to a specific attribute GUID
+	// (e.g. enrollment-only rights), so we only flag the broader rights.
+	dangerousAce       := maskGenericAll | maskGenericWrite | maskWriteDacl | maskWriteOwner | maskWriteProp
+	dangerousObjectAce := maskGenericAll | maskGenericWrite | maskWriteDacl | maskWriteOwner
+
 	var aces []aceEntry
 	offset := int(offsetDacl) + 8
 
@@ -279,27 +282,31 @@ func parseDACL(sd []byte) ([]aceEntry, error) {
 		aceData := sd[offset : offset+int(aceSize)]
 
 		switch aceType {
-		case 0x00: // ACCESS_ALLOWED_ACE
+		case 0x00: // ACCESS_ALLOWED_ACE — WriteProperty here means write any property
 			if len(aceData) >= 12 {
 				mask := binary.LittleEndian.Uint32(aceData[4:8])
-				if sid, err := parseSID(aceData[8:]); err == nil {
-					aces = append(aces, aceEntry{SID: sid, AccessMask: mask})
+				if mask&dangerousAce != 0 {
+					if sid, err := parseSID(aceData[8:]); err == nil {
+						aces = append(aces, aceEntry{SID: sid, AccessMask: mask})
+					}
 				}
 			}
-		case 0x05: // ACCESS_ALLOWED_OBJECT_ACE
+		case 0x05: // ACCESS_ALLOWED_OBJECT_ACE — WriteProperty is scoped to one attribute GUID
 			if len(aceData) >= 16 {
 				mask := binary.LittleEndian.Uint32(aceData[4:8])
-				flags := binary.LittleEndian.Uint32(aceData[8:12])
-				sidOffset := 12
-				if flags&0x01 != 0 { // ObjectType GUID present
-					sidOffset += 16
-				}
-				if flags&0x02 != 0 { // InheritedObjectType GUID present
-					sidOffset += 16
-				}
-				if sidOffset+4 <= len(aceData) {
-					if sid, err := parseSID(aceData[sidOffset:]); err == nil {
-						aces = append(aces, aceEntry{SID: sid, AccessMask: mask})
+				if mask&dangerousObjectAce != 0 {
+					flags := binary.LittleEndian.Uint32(aceData[8:12])
+					sidOffset := 12
+					if flags&0x01 != 0 {
+						sidOffset += 16
+					}
+					if flags&0x02 != 0 {
+						sidOffset += 16
+					}
+					if sidOffset+4 <= len(aceData) {
+						if sid, err := parseSID(aceData[sidOffset:]); err == nil {
+							aces = append(aces, aceEntry{SID: sid, AccessMask: mask})
+						}
 					}
 				}
 			}

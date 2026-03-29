@@ -72,10 +72,15 @@ func runLDAP(cmd *cobra.Command, args []string) {
 		}
 	}
 
+	effectivePort := ldapPort
+	if ldapTLS && ldapPort == 389 {
+		effectivePort = 636
+	}
+
 	core.RunConcurrent(jobs, Threads, func(job core.Job) {
 		out := &core.OutputBuffer{}
 
-		session, err := ldap.NewSession(job.Target, ldapPort, ldapDomain, job.Cred.Username, job.Cred.Password, job.Cred.Hash, ldapTLS)
+		session, err := ldap.NewSession(job.Target, effectivePort, ldapDomain, job.Cred.Username, job.Cred.Password, job.Cred.Hash, ldapTLS)
 		if err != nil {
 			out.Failure(fmt.Sprintf("[%s] %s - %s", proto, job.Target, err.Error()))
 			out.Flush()
