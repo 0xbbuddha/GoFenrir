@@ -17,8 +17,9 @@ var (
 	smbHash        string
 	smbDomain      string
 	smbPort        int
-	smbCheckShares bool
-	smbNullSession bool
+	smbCheckShares  bool
+	smbNullSession  bool
+	smbGPPPasswords bool
 )
 
 var smbCmd = &cobra.Command{
@@ -93,6 +94,35 @@ func runSMB(cmd *cobra.Command, args []string) {
 		}
 		out.Success(authMsg)
 
+		if smbGPPPasswords {
+			entries, err := smbmodules.FindGPPPasswords(job.Target, smbPort, smbDomain, job.Cred.Username, job.Cred.Password, job.Cred.Hash)
+			if err != nil {
+				out.Failure(fmt.Sprintf("[SMB] GPP Passwords: %s", err.Error()))
+			} else if len(entries) == 0 {
+				out.Section("GPP Passwords", 0)
+				out.TreeEntry("No cpassword found in SYSVOL", true)
+			} else {
+				out.Section("GPP Passwords", len(entries))
+				for i, e := range entries {
+					last := i == len(entries)-1
+					label := e.UserName
+					if label == "" {
+						label = e.RunAs
+					}
+					if label == "" {
+						label = "(unknown)"
+					}
+					out.TreeEntryColored(label, core.ColorRed, last)
+					if e.NewName != "" {
+						out.TreeDetail("NewName", e.NewName, false)
+					}
+					out.TreeDetail("CPassword", e.CPassword, false)
+					out.TreeDetail("Password", e.Password, false)
+					out.TreeDetail("File", e.FilePath, true)
+				}
+			}
+		}
+
 		if smbCheckShares {
 			results := smbmodules.CheckShareAccess(session, smbmodules.CommonShares)
 			accessible := 0
@@ -129,7 +159,8 @@ func init() {
 
 	smbCmd.Flags().BoolVar(&smbCheckShares, "shares", false, "Enumerate shares and check access")
 	smbCmd.Flags().BoolVar(&smbNullSession, "null-session", false, "Check for null/anonymous session")
-	for _, f := range []string{"shares", "null-session"} {
+	smbCmd.Flags().BoolVar(&smbGPPPasswords, "gpp-passwords", false, "Search SYSVOL for GPP cpasswords and decrypt them (MS14-025)")
+	for _, f := range []string{"shares", "null-session", "gpp-passwords"} {
 		smbCmd.Flags().SetAnnotation(f, "group", []string{"Enumeration"})
 	}
 

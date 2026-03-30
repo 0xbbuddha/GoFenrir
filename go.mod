@@ -4,7 +4,10 @@ go 1.26.1
 
 require (
 	github.com/TheManticoreProject/Manticore v1.0.8
+	github.com/jfjallid/go-smb v0.5.7
 	github.com/spf13/cobra v1.10.2
+	github.com/spf13/pflag v1.0.9
+	github.com/zenazn/pkcs7pad v0.0.0-20170308005700-253a5b1f0e03
 )
 
 require (
@@ -22,7 +25,9 @@ require (
 	github.com/jcmturner/goidentity/v6 v6.0.1 // indirect
 	github.com/jcmturner/gokrb5/v8 v8.4.4 // indirect
 	github.com/jcmturner/rpc/v2 v2.0.3 // indirect
-	github.com/spf13/pflag v1.0.9 // indirect
+	github.com/jfjallid/gofork v1.7.6 // indirect
+	github.com/jfjallid/gokrb5/v8 v8.4.4 // indirect
+	github.com/jfjallid/golog v0.3.3 // indirect
 	golang.org/x/crypto v0.43.0 // indirect
 	golang.org/x/net v0.46.0 // indirect
 )
