@@ -39,6 +39,7 @@ var (
 	ldapEnumDomainInfo         bool
 	ldapEnumPrivilegedGroups   bool
 	ldapEnumAdminCount         bool
+	ldapEnumLAPS               bool
 )
 
 var ldapCmd = &cobra.Command{
@@ -465,6 +466,25 @@ func runLDAP(cmd *cobra.Command, args []string) {
 			}
 		}
 
+		if ldapEnumLAPS {
+			entries, err := ldapmodules.EnumLAPS(session)
+			if err != nil {
+				out.Failure(err.Error())
+			} else {
+				out.Section("LAPS Passwords", len(entries))
+				for i, e := range entries {
+					last := i == len(entries)-1
+					ver := fmt.Sprintf("LAPSv%d", e.Version)
+					label := fmt.Sprintf("%s [%s]", e.ComputerName, ver)
+					out.TreeEntryColored(label, core.ColorRed, last)
+					out.TreeDetail("Password", e.Password, false)
+					if e.Expiration != "" {
+						out.TreeDetail("Expiration", e.Expiration, true)
+					}
+				}
+			}
+		}
+
 		if ldapEnumAdminCount {
 			entries, err := ldapmodules.EnumAdminCount(session)
 			if err != nil {
@@ -537,7 +557,8 @@ func init() {
 
 	ldapCmd.Flags().BoolVar(&ldapEnumShadowCreds, "shadow-creds", false, "Find objects with shadow credentials (msDS-KeyCredentialLink)")
 	ldapCmd.Flags().BoolVar(&ldapEnumWeakAccounts, "weak-accounts", false, "Find accounts with dangerous UAC flags (no pwd required, reversible encryption, DES...)")
-	for _, f := range []string{"shadow-creds", "weak-accounts"} {
+	ldapCmd.Flags().BoolVar(&ldapEnumLAPS, "laps", false, "Dump LAPS passwords (LAPSv1: ms-Mcs-AdmPwd, LAPSv2: msLAPS-Password)")
+	for _, f := range []string{"shadow-creds", "weak-accounts", "laps"} {
 		ldapCmd.Flags().SetAnnotation(f, "group", []string{"Credential Attacks"})
 	}
 
