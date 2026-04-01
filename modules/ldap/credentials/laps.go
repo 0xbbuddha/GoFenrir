@@ -1,4 +1,4 @@
-package ldapmodules
+package credentials
 
 import (
 	"encoding/json"

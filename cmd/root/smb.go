@@ -5,7 +5,8 @@ import (
 	"os"
 
 	"github.com/0xbbuddha/GoFenrir/core"
-	smbmodules "github.com/0xbbuddha/GoFenrir/modules/smb"
+	smbcreds "github.com/0xbbuddha/GoFenrir/modules/smb/credentials"
+	smbenum "github.com/0xbbuddha/GoFenrir/modules/smb/enumeration"
 	"github.com/0xbbuddha/GoFenrir/protocols/smb"
 	"github.com/spf13/cobra"
 )
@@ -48,8 +49,8 @@ func runSMB(cmd *cobra.Command, args []string) {
 		core.RunConcurrent(jobs, Threads, func(job core.Job) {
 			out := &core.OutputBuffer{}
 			out.Section(fmt.Sprintf("Null Session - %s", job.Target), 1)
-			nullOk := smbmodules.CheckNullSession(job.Target, smbPort)
-			ipcOk := smbmodules.CheckAnonymousIPCAccess(job.Target, smbPort)
+			nullOk := smbenum.CheckNullSession(job.Target, smbPort)
+			ipcOk := smbenum.CheckAnonymousIPCAccess(job.Target, smbPort)
 			if nullOk {
 				out.TreeEntryColored("Null session allowed", core.ColorRed, false)
 			} else {
@@ -95,7 +96,7 @@ func runSMB(cmd *cobra.Command, args []string) {
 		out.Success(authMsg)
 
 		if smbGPPPasswords {
-			entries, err := smbmodules.FindGPPPasswords(job.Target, smbPort, smbDomain, job.Cred.Username, job.Cred.Password, job.Cred.Hash)
+			entries, err := smbcreds.FindGPPPasswords(job.Target, smbPort, smbDomain, job.Cred.Username, job.Cred.Password, job.Cred.Hash)
 			if err != nil {
 				out.Failure(fmt.Sprintf("[SMB] GPP Passwords: %s", err.Error()))
 			} else if len(entries) == 0 {
@@ -124,7 +125,7 @@ func runSMB(cmd *cobra.Command, args []string) {
 		}
 
 		if smbCheckShares {
-			results := smbmodules.CheckShareAccess(session, smbmodules.CommonShares)
+			results := smbenum.CheckShareAccess(session, smbenum.CommonShares)
 			accessible := 0
 			for _, r := range results {
 				if r.Accessible {

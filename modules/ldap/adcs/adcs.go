@@ -1,4 +1,4 @@
-package ldapmodules
+package adcs
 
 import (
 	"encoding/binary"

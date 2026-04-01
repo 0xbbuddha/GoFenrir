@@ -1,4 +1,4 @@
-package smbmodules
+package credentials
 
 import (
 	"bytes"

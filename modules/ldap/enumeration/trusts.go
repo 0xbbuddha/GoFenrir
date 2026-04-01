@@ -1,4 +1,4 @@
-package ldapmodules
+package enumeration
 
 import (
 	"fmt"

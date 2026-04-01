@@ -5,7 +5,12 @@ import (
 	"os"
 
 	"github.com/0xbbuddha/GoFenrir/core"
-	ldapmodules "github.com/0xbbuddha/GoFenrir/modules/ldap"
+	ldapadcs "github.com/0xbbuddha/GoFenrir/modules/ldap/adcs"
+	ldapacl "github.com/0xbbuddha/GoFenrir/modules/ldap/acl"
+	ldapcreds "github.com/0xbbuddha/GoFenrir/modules/ldap/credentials"
+	ldapenum "github.com/0xbbuddha/GoFenrir/modules/ldap/enumeration"
+	ldapkrb "github.com/0xbbuddha/GoFenrir/modules/ldap/kerberos"
+	ldappriv "github.com/0xbbuddha/GoFenrir/modules/ldap/privilege"
 	"github.com/0xbbuddha/GoFenrir/protocols/ldap"
 	"github.com/spf13/cobra"
 )
@@ -102,7 +107,7 @@ func runLDAP(cmd *cobra.Command, args []string) {
 		out.Success(authMsg)
 
 		if ldapEnumUsers {
-			users, err := ldapmodules.EnumUsers(session)
+			users, err := ldapenum.EnumUsers(session)
 			if err != nil {
 				out.Failure(err.Error())
 			} else {
@@ -120,7 +125,7 @@ func runLDAP(cmd *cobra.Command, args []string) {
 		}
 
 		if ldapEnumGroups {
-			groups, err := ldapmodules.EnumGroups(session)
+			groups, err := ldapenum.EnumGroups(session)
 			if err != nil {
 				out.Failure(err.Error())
 			} else {
@@ -132,7 +137,7 @@ func runLDAP(cmd *cobra.Command, args []string) {
 		}
 
 		if ldapEnumDCs {
-			dcs, err := ldapmodules.EnumDCs(session)
+			dcs, err := ldapenum.EnumDCs(session)
 			if err != nil {
 				out.Failure(err.Error())
 			} else {
@@ -148,7 +153,7 @@ func runLDAP(cmd *cobra.Command, args []string) {
 		}
 
 		if ldapEnumKerberoast {
-			accounts, err := ldapmodules.EnumKerberoastable(session)
+			accounts, err := ldapkrb.EnumKerberoastable(session)
 			if err != nil {
 				out.Failure(err.Error())
 			} else {
@@ -164,7 +169,7 @@ func runLDAP(cmd *cobra.Command, args []string) {
 		}
 
 		if ldapEnumASREP {
-			accounts, err := ldapmodules.EnumASREPRoastable(session)
+			accounts, err := ldapkrb.EnumASREPRoastable(session)
 			if err != nil {
 				out.Failure(err.Error())
 			} else {
@@ -176,7 +181,7 @@ func runLDAP(cmd *cobra.Command, args []string) {
 		}
 
 		if ldapEnumAdmins {
-			admins, err := ldapmodules.EnumAdmins(session)
+			admins, err := ldappriv.EnumAdmins(session)
 			if err != nil {
 				out.Failure(err.Error())
 			} else {
@@ -188,7 +193,7 @@ func runLDAP(cmd *cobra.Command, args []string) {
 		}
 
 		if ldapEnumComputers {
-			computers, err := ldapmodules.EnumComputers(session)
+			computers, err := ldapenum.EnumComputers(session)
 			if err != nil {
 				out.Failure(err.Error())
 			} else {
@@ -208,7 +213,7 @@ func runLDAP(cmd *cobra.Command, args []string) {
 		}
 
 		if ldapEnumPwdPolicy {
-			policy, err := ldapmodules.GetPasswordPolicy(session)
+			policy, err := ldappriv.GetPasswordPolicy(session)
 			if err != nil {
 				out.Failure(err.Error())
 			} else {
@@ -225,7 +230,7 @@ func runLDAP(cmd *cobra.Command, args []string) {
 		}
 
 		if ldapEnumTrusts {
-			trusts, err := ldapmodules.EnumTrusts(session)
+			trusts, err := ldapenum.EnumTrusts(session)
 			if err != nil {
 				out.Failure(err.Error())
 			} else {
@@ -240,7 +245,7 @@ func runLDAP(cmd *cobra.Command, args []string) {
 		}
 
 		if ldapEnumGPOs {
-			gpos, err := ldapmodules.EnumGPOs(session)
+			gpos, err := ldapenum.EnumGPOs(session)
 			if err != nil {
 				out.Failure(err.Error())
 			} else {
@@ -256,7 +261,7 @@ func runLDAP(cmd *cobra.Command, args []string) {
 		}
 
 		if ldapEnumOUs {
-			ous, err := ldapmodules.EnumOUs(session)
+			ous, err := ldapenum.EnumOUs(session)
 			if err != nil {
 				out.Failure(err.Error())
 			} else {
@@ -268,7 +273,7 @@ func runLDAP(cmd *cobra.Command, args []string) {
 		}
 
 		if ldapEnumUnconstrainedDel {
-			accounts, err := ldapmodules.EnumUnconstrainedDelegation(session)
+			accounts, err := ldapkrb.EnumUnconstrainedDelegation(session)
 			if err != nil {
 				out.Failure(err.Error())
 			} else {
@@ -281,7 +286,7 @@ func runLDAP(cmd *cobra.Command, args []string) {
 		}
 
 		if ldapEnumConstrainedDel {
-			accounts, err := ldapmodules.EnumConstrainedDelegation(session)
+			accounts, err := ldapkrb.EnumConstrainedDelegation(session)
 			if err != nil {
 				out.Failure(err.Error())
 			} else {
@@ -303,7 +308,7 @@ func runLDAP(cmd *cobra.Command, args []string) {
 		}
 
 		if ldapEnumRBCD {
-			entries, err := ldapmodules.EnumRBCD(session)
+			entries, err := ldapacl.EnumRBCD(session)
 			if err != nil {
 				out.Failure(err.Error())
 			} else {
@@ -316,7 +321,7 @@ func runLDAP(cmd *cobra.Command, args []string) {
 		}
 
 		if ldapEnumADCS {
-			cas, templates, err := ldapmodules.EnumADCS(session)
+			cas, templates, err := ldapadcs.EnumADCS(session)
 			if err != nil {
 				out.Failure(err.Error())
 			} else {
@@ -355,7 +360,7 @@ func runLDAP(cmd *cobra.Command, args []string) {
 					}
 				}
 
-				var vulnTemplates []ldapmodules.TemplateEntry
+				var vulnTemplates []ldapadcs.TemplateEntry
 				for _, t := range templates {
 					if t.IsESC1 || t.IsESC2 || t.IsESC3 || t.IsESC4 || t.IsESC9 {
 						vulnTemplates = append(vulnTemplates, t)
@@ -392,7 +397,7 @@ func runLDAP(cmd *cobra.Command, args []string) {
 		}
 
 		if ldapEnumShadowCreds {
-			entries, err := ldapmodules.EnumShadowCreds(session)
+			entries, err := ldapacl.EnumShadowCreds(session)
 			if err != nil {
 				out.Failure(err.Error())
 			} else {
@@ -413,7 +418,7 @@ func runLDAP(cmd *cobra.Command, args []string) {
 		}
 
 		if ldapEnumWeakAccounts {
-			entries, err := ldapmodules.EnumWeakAccounts(session)
+			entries, err := ldappriv.EnumWeakAccounts(session)
 			if err != nil {
 				out.Failure(err.Error())
 			} else {
@@ -429,7 +434,7 @@ func runLDAP(cmd *cobra.Command, args []string) {
 		}
 
 		if ldapEnumDomainInfo {
-			info, err := ldapmodules.GetDomainInfo(session, ldapDomain)
+			info, err := ldapenum.GetDomainInfo(session, ldapDomain)
 			if err != nil {
 				out.Failure(err.Error())
 			} else {
@@ -451,7 +456,7 @@ func runLDAP(cmd *cobra.Command, args []string) {
 		}
 
 		if ldapEnumPrivilegedGroups {
-			groups, err := ldapmodules.EnumPrivilegedGroups(session, ldapDomain)
+			groups, err := ldappriv.EnumPrivilegedGroups(session, ldapDomain)
 			if err != nil {
 				out.Failure(err.Error())
 			} else {
@@ -467,7 +472,7 @@ func runLDAP(cmd *cobra.Command, args []string) {
 		}
 
 		if ldapEnumLAPS {
-			entries, err := ldapmodules.EnumLAPS(session)
+			entries, err := ldapcreds.EnumLAPS(session)
 			if err != nil {
 				out.Failure(err.Error())
 			} else {
@@ -486,7 +491,7 @@ func runLDAP(cmd *cobra.Command, args []string) {
 		}
 
 		if ldapEnumAdminCount {
-			entries, err := ldapmodules.EnumAdminCount(session)
+			entries, err := ldappriv.EnumAdminCount(session)
 			if err != nil {
 				out.Failure(err.Error())
 			} else {

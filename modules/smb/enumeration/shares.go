@@ -1,4 +1,4 @@
-package smbmodules
+package enumeration
 
 import (
 	"github.com/0xbbuddha/GoFenrir/protocols/smb"

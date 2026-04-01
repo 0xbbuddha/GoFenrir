@@ -1,4 +1,4 @@
-package ldapmodules
+package acl
 
 import (
 	"fmt"

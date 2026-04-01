@@ -1,4 +1,4 @@
-package ldapmodules
+package privilege
 
 import (
 	"fmt"
@@ -8,15 +8,15 @@ import (
 	"github.com/0xbbuddha/GoFenrir/protocols/ldap"
 )
 
-type ASREPRoastEntry struct {
+type AdminEntry struct {
 	SAMAccountName string
 	DN             string
 }
 
-func EnumASREPRoastable(s *ldap.Session) ([]ASREPRoastEntry, error) {
+func EnumAdmins(s *ldap.Session) ([]AdminEntry, error) {
 	filter := fmt.Sprintf(
-		"(&(objectClass=user)(objectCategory=person)(userAccountControl:1.2.840.113556.1.4.803:=%d))",
-		ldap_attributes.UAF_DONT_REQ_PREAUTH,
+		"(&(objectClass=user)(objectCategory=person)(primaryGroupID=%d))",
+		ldap_attributes.RID_DOMAIN_GROUP_ADMINS,
 	)
 
 	entries, err := s.LdapSession.QueryWholeSubtree(
@@ -25,12 +25,12 @@ func EnumASREPRoastable(s *ldap.Session) ([]ASREPRoastEntry, error) {
 		[]string{"sAMAccountName", "distinguishedName"},
 	)
 	if err != nil {
-		return nil, fmt.Errorf("failed to enumerate AS-REP roastable accounts: %w", err)
+		return nil, fmt.Errorf("failed to enumerate admins: %w", err)
 	}
 
-	var results []ASREPRoastEntry
+	var results []AdminEntry
 	for _, entry := range entries {
-		results = append(results, ASREPRoastEntry{
+		results = append(results, AdminEntry{
 			SAMAccountName: entry.GetAttributeValue("sAMAccountName"),
 			DN:             entry.GetAttributeValue("distinguishedName"),
 		})

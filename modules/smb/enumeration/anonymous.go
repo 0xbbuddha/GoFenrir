@@ -1,4 +1,4 @@
-package smbmodules
+package enumeration
 
 import (
 	"fmt"

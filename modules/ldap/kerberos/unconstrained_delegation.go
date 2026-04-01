@@ -1,4 +1,4 @@
-package ldapmodules
+package kerberos
 
 import (
 	"fmt"
