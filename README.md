@@ -19,97 +19,124 @@ GoFenrir is an Active Directory offensive framework inspired by [NetExec](https:
 | LDAP / LDAPS | Working | Full enumeration + attack support |
 | SMB v1 | Working | Limited to targets with SMBv1 enabled |
 | SMB v2/v3 | Planned | Waiting on Manticore |
-| Kerberos | Planned | Waiting on Manticore |
+| Kerberos | Working | Kerberoast + ASREPRoast (native, no external library) |
 
 Protocol support grows alongside [TheManticoreProject/Manticore](https://github.com/TheManticoreProject/Manticore).
 
 ## Usage
 
 ```
-gf <protocol> [options]
+Usage:
+  gf [protocol] [flags]
+
+Available Protocols:
+  ldap       Interact with LDAP/LDAPS
+  smb        Interact with SMB (v1)
+
+Global Flags:
+  -t, --target string     Target IP or hostname
+  -u, --username string   Username
+  -p, --password string   Password
+  -H, --hash string       NT hash (format: [LM:]NT)
+  -d, --domain string     Domain
+
+Options:
+      --threads int       Number of concurrent threads (default 1)
+      --timeout int       Timeout per thread in seconds (default 30)
+      --log string        Export output to a file
+      --verbose           Verbose output
+      --debug             Debug output
+  -h, --help              Show this help
 ```
 
 ### LDAP
 
-```bash
-# Authentication check
-gf ldap -t DC01.domain.local -u user -p 'Password123' -d domain.local
-
-# Pass-the-Hash
-gf ldap -t DC01.domain.local -u user -H <NT_HASH> -d domain.local
-
-# Spray credentials across a subnet
-gf ldap -t 192.168.1.0/24 -u users.txt -p passwords.txt -d domain.local --threads 10
 ```
+Usage:
+  gf ldap [flags]
 
-#### Enumeration
+Interact with LDAP/LDAPS
 
-```bash
-gf ldap ... --users              # User accounts (enabled/disabled)
-gf ldap ... --groups             # Groups with member count
-gf ldap ... --dcs                # Domain controllers (including RODCs)
-gf ldap ... --computers          # Computer accounts with OS info
-gf ldap ... --admins             # Domain admins
-gf ldap ... --ous                # Organizational units
-gf ldap ... --gpos               # Group Policy Objects
-gf ldap ... --trusts             # Domain trusts
-gf ldap ... --pwd-policy         # Password policy
+Connection:
+  -d, --domain string          Domain
+  -H, --hash string            NT hash (format: [LM:]NT)
+  -p, --password string        Password or file of passwords
+      --port int               LDAP port
+  -t, --target string          Target IP, hostname, CIDR, or file path
+      --tls                    Use LDAPS (TLS, port 636)
+  -u, --username string        Username or file of usernames
+
+Enumeration:
+      --admins                 Enumerate domain admins
+      --computers              Enumerate computer accounts with OS info
+      --dcs                    Enumerate domain controllers
+      --gpos                   Enumerate Group Policy Objects
+      --groups                 Enumerate groups
+      --ous                    Enumerate Organizational Units
+      --pwd-policy             Get password policy
+      --trusts                 Enumerate domain trusts
+      --users                  Enumerate users
+
+Domain:
+      --admin-count            Find objects with adminCount=1 (AdminSDHolder protected)
+      --domain-info            Get domain info (functional level, SID, PDC, DNS servers, naming contexts)
+      --privileged-groups      Enumerate privileged groups and their members (Domain Admins, Enterprise Admins, etc.)
+
+Kerberos:
+      --asreproast             Find AS-REP roastable accounts (pre-auth disabled)
+      --kerberoastable         Find kerberoastable accounts (SPN-based)
+
+Delegation:
+      --constrained            Find accounts with constrained delegation + SPNs
+      --rbcd                   Find accounts with resource-based constrained delegation configured
+      --unconstrained          Find accounts with unconstrained delegation (excludes DCs)
+
+ADCS:
+      --adcs                   Enumerate CAs and templates, detect ESC1/ESC2/ESC3/ESC4/ESC9
+
+Credential Attacks:
+      --laps                   Dump LAPS passwords (LAPSv1: ms-Mcs-AdmPwd, LAPSv2: msLAPS-Password)
+      --shadow-creds           Find objects with shadow credentials (msDS-KeyCredentialLink)
+      --weak-accounts          Find accounts with dangerous UAC flags (no pwd required, reversible encryption, DES...)
+
+Global:
+      --threads int            Number of concurrent threads (default 1)
+      --timeout int            Timeout per thread in seconds (default 30)
+      --log string             Export output to a file
+      --verbose                Verbose output
+      --debug                  Debug output
+  -h, --help                   Show this help
 ```
-
-#### Kerberos Attacks
-
-```bash
-gf ldap ... --kerberoastable     # Accounts with SPNs (Kerberoast targets)
-gf ldap ... --asreproast         # Accounts without pre-auth (AS-REP roast targets)
-```
-
-#### Delegation
-
-```bash
-gf ldap ... --unconstrained      # Computers/users with unconstrained delegation (excludes DCs)
-gf ldap ... --constrained        # Accounts with constrained delegation + SPNs + protocol transition flag
-gf ldap ... --rbcd               # Objects with resource-based constrained delegation configured
-```
-
-#### ADCS
-
-```bash
-gf ldap ... --adcs               # Enumerate CAs, enabled templates, and detect ESC1 vulnerabilities
-```
-
-ESC1 detection checks:
-- `CT_FLAG_ENROLLEE_SUPPLIES_SUBJECT` set in `msPKI-Certificate-Name-Flag`
-- Client Authentication EKU present (or no EKU restriction)
-- No manager approval required
-- No issuance agent requirements (`msPKI-RA-Signature == 0`)
-
-#### Credential Attacks
-
-```bash
-gf ldap ... --shadow-creds       # Objects with msDS-KeyCredentialLink (shadow credentials)
-gf ldap ... --weak-accounts      # Accounts with dangerous UAC flags
-```
-
-Weak account flags checked:
-- `PASSWD_NOTREQD` — account may have an empty password
-- `ENCRYPTED_TEXT_PWD_ALLOWED` — password stored with reversible encryption
-- `USE_DES_KEY_ONLY` — Kerberos restricted to weak DES encryption
-- `DONT_EXPIRE_PASSWORD` — password never expires
 
 ### SMB
 
-```bash
-# Authentication check
-gf smb -t DC01.domain.local -u user -p 'Password123' -d domain.local
-
-# Enumerate share access
-gf smb -t DC01.domain.local -u user -p 'Password123' -d domain.local --shares
-
-# Null session check
-gf smb -t DC01.domain.local --null-session
 ```
+Usage:
+  gf smb [flags]
 
-> SMB currently uses Manticore's SMBv1 implementation. Modern Windows targets have SMBv1 disabled. SMBv2/v3 support will arrive when Manticore implements it.
+Interact with SMB (v1)
+
+Connection:
+  -d, --domain string          Domain
+  -H, --hash string            NT hash (format: [LM:]NT)
+  -p, --password string        Password or file of passwords
+      --port int               SMB port
+  -t, --target string          Target IP, hostname, CIDR, or file path
+  -u, --username string        Username or file of usernames
+
+Enumeration:
+      --gpp-passwords          Search SYSVOL for GPP cpasswords and decrypt them (MS14-025)
+      --null-session           Check for null/anonymous session
+      --shares                 Enumerate shares and check access
+
+Global:
+      --threads int            Number of concurrent threads (default 1)
+      --timeout int            Timeout per thread in seconds (default 30)
+      --log string             Export output to a file
+      --verbose                Verbose output
+      --debug                  Debug output
+  -h, --help                   Show this help
+```
 
 ## Installation
 
