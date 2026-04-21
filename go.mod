@@ -3,7 +3,7 @@ module github.com/0xbbuddha/GoFenrir
 go 1.26.1
 
 require (
-	github.com/TheManticoreProject/Manticore v1.0.8
+	github.com/TheManticoreProject/Manticore v1.0.9-0.20260421132318-04b994dbfbf9
 	github.com/jfjallid/go-smb v0.5.7
 	github.com/spf13/cobra v1.10.2
 	github.com/spf13/pflag v1.0.9
