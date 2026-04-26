@@ -46,6 +46,7 @@ var (
 	ldapEnumAdminCount         bool
 	ldapEnumLAPS               bool
 	ldapEnumGMSA               bool
+	ldapEnumPSO                bool
 )
 
 var ldapCmd = &cobra.Command{
@@ -530,6 +531,33 @@ func runLDAP(cmd *cobra.Command, args []string) {
 			}
 		}
 
+		if ldapEnumPSO {
+			psos, err := ldappriv.EnumPSO(session)
+			if err != nil {
+				out.Failure(err.Error())
+			} else {
+				out.Section("Fine-Grained Password Policies (PSO)", len(psos))
+				for i, p := range psos {
+					last := i == len(psos)-1
+					out.TreeEntryColored(fmt.Sprintf("%s (precedence %d)", p.Name, p.Precedence), core.ColorYellow, last)
+					out.TreeDetail("Min Length", fmt.Sprintf("%d", p.MinPwdLength), false)
+					out.TreeDetail("History", fmt.Sprintf("%d", p.PwdHistoryLength), false)
+					out.TreeDetail("Lockout Threshold", fmt.Sprintf("%d", p.LockoutThreshold), false)
+					complexity := fmt.Sprintf("%sNo%s", core.ColorRed, core.ColorReset)
+					if p.ComplexityEnabled {
+						complexity = fmt.Sprintf("%sYes%s", core.ColorGreen, core.ColorReset)
+					}
+					out.TreeDetail("Complexity", complexity, false)
+					if p.ReversibleEncrypt {
+						out.TreeDetail("Reversible Encrypt", fmt.Sprintf("%sYes (cleartext exposed!)%s", core.ColorRed, core.ColorReset), false)
+					}
+					for j, t := range p.AppliesTo {
+						out.TreeDetail("Applies to", t, j == len(p.AppliesTo)-1)
+					}
+				}
+			}
+		}
+
 		if ldapEnumAdminCount {
 			entries, err := ldappriv.EnumAdminCount(session)
 			if err != nil {
@@ -580,7 +608,8 @@ func init() {
 	ldapCmd.Flags().BoolVar(&ldapEnumDomainInfo, "domain-info", false, "Get domain info (functional level, SID, PDC, DNS servers, naming contexts)")
 	ldapCmd.Flags().BoolVar(&ldapEnumPrivilegedGroups, "privileged-groups", false, "Enumerate privileged groups and their members (Domain Admins, Enterprise Admins, etc.)")
 	ldapCmd.Flags().BoolVar(&ldapEnumAdminCount, "admin-count", false, "Find objects with adminCount=1 (AdminSDHolder protected)")
-	for _, f := range []string{"domain-info", "privileged-groups", "admin-count"} {
+	ldapCmd.Flags().BoolVar(&ldapEnumPSO, "pso", false, "Enumerate Fine-Grained Password Policies (PSO) and their targets")
+	for _, f := range []string{"domain-info", "privileged-groups", "admin-count", "pso"} {
 		ldapCmd.Flags().SetAnnotation(f, "group", []string{"Domain"})
 	}
 
