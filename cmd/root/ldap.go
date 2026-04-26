@@ -45,6 +45,7 @@ var (
 	ldapEnumPrivilegedGroups   bool
 	ldapEnumAdminCount         bool
 	ldapEnumLAPS               bool
+	ldapEnumGMSA               bool
 )
 
 var ldapCmd = &cobra.Command{
@@ -505,6 +506,30 @@ func runLDAP(cmd *cobra.Command, args []string) {
 			}
 		}
 
+		if ldapEnumGMSA {
+			entries, err := ldapcreds.EnumGMSA(session)
+			if err != nil {
+				out.Failure(err.Error())
+			} else {
+				out.Section("gMSA Accounts", len(entries))
+				for i, e := range entries {
+					last := i == len(entries)-1
+					color := core.ColorYellow
+					if e.NTHash != "" {
+						color = core.ColorRed
+					}
+					out.TreeEntryColored(e.SAMAccountName, color, last)
+					for j, r := range e.AllowedReaders {
+						isLastReader := j == len(e.AllowedReaders)-1 && e.NTHash == ""
+						out.TreeDetail("Allowed reader", r, isLastReader)
+					}
+					if e.NTHash != "" {
+						out.TreeDetail("NT Hash", e.NTHash, true)
+					}
+				}
+			}
+		}
+
 		if ldapEnumAdminCount {
 			entries, err := ldappriv.EnumAdminCount(session)
 			if err != nil {
@@ -578,7 +603,8 @@ func init() {
 	ldapCmd.Flags().BoolVar(&ldapEnumShadowCreds, "shadow-creds", false, "Find objects with shadow credentials (msDS-KeyCredentialLink)")
 	ldapCmd.Flags().BoolVar(&ldapEnumWeakAccounts, "weak-accounts", false, "Find accounts with dangerous UAC flags (no pwd required, reversible encryption, DES...)")
 	ldapCmd.Flags().BoolVar(&ldapEnumLAPS, "laps", false, "Dump LAPS passwords (LAPSv1: ms-Mcs-AdmPwd, LAPSv2: msLAPS-Password)")
-	for _, f := range []string{"shadow-creds", "weak-accounts", "laps"} {
+	ldapCmd.Flags().BoolVar(&ldapEnumGMSA, "gmsa", false, "Dump gMSA passwords as NT hashes (requires read access to msDS-ManagedPassword)")
+	for _, f := range []string{"shadow-creds", "weak-accounts", "laps", "gmsa"} {
 		ldapCmd.Flags().SetAnnotation(f, "group", []string{"Credential Attacks"})
 	}
 
