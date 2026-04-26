@@ -47,6 +47,7 @@ var (
 	ldapEnumLAPS               bool
 	ldapEnumGMSA               bool
 	ldapEnumPSO                bool
+	ldapEnumACEs               bool
 )
 
 var ldapCmd = &cobra.Command{
@@ -507,6 +508,40 @@ func runLDAP(cmd *cobra.Command, args []string) {
 			}
 		}
 
+		if ldapEnumACEs {
+			aces, err := ldapacl.EnumDangerousACEs(session)
+			if err != nil {
+				out.Failure(err.Error())
+			} else {
+				// Group by object for readability.
+				type objKey struct{ name, typ string }
+				grouped := make(map[objKey][]ldapacl.ACEEntry)
+				var order []objKey
+				for _, a := range aces {
+					k := objKey{a.ObjectName, a.ObjectType}
+					if _, exists := grouped[k]; !exists {
+						order = append(order, k)
+					}
+					grouped[k] = append(grouped[k], a)
+				}
+				out.Section("Dangerous ACEs", len(aces))
+				for i, k := range order {
+					entries := grouped[k]
+					lastObj := i == len(order)-1
+					label := fmt.Sprintf("%s (%s)", k.name, k.typ)
+					out.TreeEntry(label, lastObj)
+					for j, a := range entries {
+						lastAce := j == len(entries)-1
+						color := core.ColorYellow
+						if a.Severity == "critical" {
+							color = core.ColorRed
+						}
+						out.TreeDetail(a.Right, fmt.Sprintf("%s%s%s → %s", color, a.TrusteeName, core.ColorReset, a.TrusteeSID), lastAce)
+					}
+				}
+			}
+		}
+
 		if ldapEnumGMSA {
 			entries, err := ldapcreds.EnumGMSA(session)
 			if err != nil {
@@ -633,7 +668,8 @@ func init() {
 	ldapCmd.Flags().BoolVar(&ldapEnumWeakAccounts, "weak-accounts", false, "Find accounts with dangerous UAC flags (no pwd required, reversible encryption, DES...)")
 	ldapCmd.Flags().BoolVar(&ldapEnumLAPS, "laps", false, "Dump LAPS passwords (LAPSv1: ms-Mcs-AdmPwd, LAPSv2: msLAPS-Password)")
 	ldapCmd.Flags().BoolVar(&ldapEnumGMSA, "gmsa", false, "Dump gMSA passwords as NT hashes (requires read access to msDS-ManagedPassword)")
-	for _, f := range []string{"shadow-creds", "weak-accounts", "laps", "gmsa"} {
+	ldapCmd.Flags().BoolVar(&ldapEnumACEs, "find-aces", false, "Find dangerous ACEs (GenericAll, WriteDACL, ForceChangePassword, DCSync...) on domain, groups, adminCount users, computers")
+	for _, f := range []string{"shadow-creds", "weak-accounts", "laps", "gmsa", "find-aces"} {
 		ldapCmd.Flags().SetAnnotation(f, "group", []string{"Credential Attacks"})
 	}
 
