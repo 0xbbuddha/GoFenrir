@@ -81,6 +81,7 @@ Domain:
       --admin-count            Find objects with adminCount=1 (AdminSDHolder protected)
       --domain-info            Get domain info (functional level, SID, PDC, DNS servers, naming contexts)
       --privileged-groups      Enumerate privileged groups and their members (Domain Admins, Enterprise Admins, etc.)
+      --pso                    Enumerate Fine-Grained Password Policies (PSO) and their targets
 
 Kerberos:
       --asreproast             Find AS-REP roastable accounts (pre-auth disabled)
@@ -98,6 +99,7 @@ Credential Attacks:
       --laps                   Dump LAPS passwords (LAPSv1: ms-Mcs-AdmPwd, LAPSv2: msLAPS-Password)
       --shadow-creds           Find objects with shadow credentials (msDS-KeyCredentialLink)
       --weak-accounts          Find accounts with dangerous UAC flags (no pwd required, reversible encryption, DES...)
+      --gmsa                   Dump gMSA passwords as NT hashes (requires read access to msDS-ManagedPassword)
 
 Global:
       --threads int            Number of concurrent threads (default 1)
