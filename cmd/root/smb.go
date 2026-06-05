@@ -24,6 +24,7 @@ var (
 	smbRIDBrute     bool
 	smbRIDStart     uint32
 	smbRIDEnd       uint32
+	smbLocalGroups  bool
 )
 
 var smbCmd = &cobra.Command{
@@ -157,6 +158,36 @@ func runSMB(cmd *cobra.Command, args []string) {
 			}
 		}
 
+		if smbLocalGroups {
+			groups, err := smbenum.LocalGroups(session)
+			if err != nil {
+				out.Failure(fmt.Sprintf("[SMB] Local Groups: %s", err.Error()))
+			} else {
+				for _, g := range groups {
+					out.Section(fmt.Sprintf("Group: %s (RID %d)", g.Name, g.RID), len(g.Members))
+					for i, m := range g.Members {
+						last := i == len(g.Members)-1
+						label := m.Name
+						if m.Name == m.SID {
+							label = m.SID
+						} else {
+							label = fmt.Sprintf("%s (%s)", m.Name, m.SID)
+						}
+						var color string
+						switch m.Type {
+						case "user":
+							color = core.ColorGreen
+						case "computer":
+							color = core.ColorYellow
+						default:
+							color = core.ColorBlue
+						}
+						out.TreeEntryColored(label, color, last)
+					}
+				}
+			}
+		}
+
 		if smbCheckShares {
 			results := smbenum.CheckShareAccess(session, smbenum.CommonShares)
 			accessible := 0
@@ -197,7 +228,8 @@ func init() {
 	smbCmd.Flags().BoolVar(&smbRIDBrute, "rid-brute", false, "Enumerate users/groups via SAMR (RID cycling fallback if enumeration denied)")
 	smbCmd.Flags().Uint32Var(&smbRIDStart, "rid-start", 500, "Starting RID for cycling fallback")
 	smbCmd.Flags().Uint32Var(&smbRIDEnd, "rid-end", 4000, "Ending RID for cycling fallback")
-	for _, f := range []string{"shares", "null-session", "gpp-passwords", "rid-brute", "rid-start", "rid-end"} {
+	smbCmd.Flags().BoolVar(&smbLocalGroups, "local-groups", false, "Enumerate local groups and their members via SAMR+LSA")
+	for _, f := range []string{"shares", "null-session", "gpp-passwords", "rid-brute", "rid-start", "rid-end", "local-groups"} {
 		smbCmd.Flags().SetAnnotation(f, "group", []string{"Enumeration"})
 	}
 
