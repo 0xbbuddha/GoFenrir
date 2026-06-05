@@ -4,7 +4,7 @@ import (
 	"encoding/hex"
 	"fmt"
 
-	mtkrb "github.com/TheManticoreProject/Manticore/network/kerberos"
+	mtkrb "github.com/TheManticoreProject/Manticore/network/kerberos/v5"
 	"github.com/TheManticoreProject/Manticore/network/ldap/ldap_attributes"
 
 	"github.com/0xbbuddha/GoFenrir/protocols/ldap"

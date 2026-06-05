@@ -4,7 +4,7 @@ import (
 	"encoding/hex"
 	"fmt"
 
-	mtkrb "github.com/TheManticoreProject/Manticore/network/kerberos"
+	mtkrb "github.com/TheManticoreProject/Manticore/network/kerberos/v5"
 
 	"github.com/0xbbuddha/GoFenrir/protocols/ldap"
 )
@@ -62,7 +62,7 @@ func KerberoastActive(entries []KerberoastableEntry, username, password, realm, 
 	var results []KerberoastHash
 	for _, e := range entries {
 		for _, spn := range e.SPNs {
-			ticket, _, err := client.GetTGS(spn)
+			ticket, _, _, err := client.GetTGS(spn, false)
 			if err != nil {
 				continue
 			}

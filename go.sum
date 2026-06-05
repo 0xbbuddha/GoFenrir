@@ -2,6 +2,10 @@ github.com/Azure/go-ntlmssp v0.0.0-20221128193559-754e69321358 h1:mFRzDkZVAjdal+
 github.com/Azure/go-ntlmssp v0.0.0-20221128193559-754e69321358/go.mod h1:chxPXzSsl7ZWRAuOIE23GDNzjWuZquvFlgA8xmpunjU=
 github.com/TheManticoreProject/Manticore v1.0.9-0.20260421132318-04b994dbfbf9 h1:eYB37lLWHs7CwKWryKtGIQ24apne5UqCNod3Alg5hjE=
 github.com/TheManticoreProject/Manticore v1.0.9-0.20260421132318-04b994dbfbf9/go.mod h1:zAsoZpSvLrteAE7rR5sqG6/ffNfSM6L6ue7Af/fv1E0=
+github.com/TheManticoreProject/Manticore v1.0.9-0.20260605060947-16c0cb046438 h1:SjXlScs7ubmIkfbquwn+tABWPN9LpIN8eJ5B7jjLagw=
+github.com/TheManticoreProject/Manticore v1.0.9-0.20260605060947-16c0cb046438/go.mod h1:zAsoZpSvLrteAE7rR5sqG6/ffNfSM6L6ue7Af/fv1E0=
+github.com/TheManticoreProject/goopts v1.2.4 h1:HTR+i6ZfcwTPSDltENayQvTH2fZP6cDx0GTBUp/RuPM=
+github.com/TheManticoreProject/goopts v1.2.4/go.mod h1:NaM3hXXCeN+x9ZSlkS6Bm8i8Lfqe28/rveBsfrMUrAo=
 github.com/TheManticoreProject/winacl v1.2.14 h1:0KYRWTRAjhzoVi0Dz3z5UbpbbGiiAbUGh8RkkslfYxA=
 github.com/TheManticoreProject/winacl v1.2.14/go.mod h1:Xji/qLzY8AkdBNXRgOS7g+UBEuqMQBBZllr+rl7Hzko=
 github.com/alexbrainman/sspi v0.0.0-20250919150558-7d374ff0d59e h1:4dAU9FXIyQktpoUAgOJK3OTFc/xug0PCXYCqU0FgDKI=
