@@ -26,6 +26,7 @@ var (
 	smbRIDEnd       uint32
 	smbLocalGroups  bool
 	smbSessions     bool
+	smbWhoHasPriv   string
 )
 
 var smbCmd = &cobra.Command{
@@ -176,6 +177,30 @@ func runSMB(cmd *cobra.Command, args []string) {
 			}
 		}
 
+		if smbWhoHasPriv != "" {
+			privs, err := smbenum.WhoHasPriv(session, smbWhoHasPriv)
+			if err != nil {
+				out.Failure(fmt.Sprintf("[SMB] Who-Has-Priv: %s", err.Error()))
+			} else if len(privs) == 0 {
+				out.Section("Privileges", 0)
+				out.TreeEntry("No accounts found holding the specified privilege(s)", true)
+			} else {
+				out.Section("Privileges", len(privs))
+				for pi, pe := range privs {
+					lastPriv := pi == len(privs)-1
+					out.TreeEntryColored(pe.Privilege, core.ColorYellow, lastPriv && len(pe.Holders) == 0)
+					for hi, h := range pe.Holders {
+						lastHolder := hi == len(pe.Holders)-1
+						label := h.Name
+						if h.Name != h.SID {
+							label = fmt.Sprintf("%s (%s)", h.Name, h.SID)
+						}
+						out.TreeDetail("holder", label, lastPriv && lastHolder)
+					}
+				}
+			}
+		}
+
 		if smbLocalGroups {
 			groups, err := smbenum.LocalGroups(session)
 			if err != nil {
@@ -258,7 +283,8 @@ func init() {
 	smbCmd.Flags().Uint32Var(&smbRIDEnd, "rid-end", 4000, "Ending RID for cycling fallback")
 	smbCmd.Flags().BoolVar(&smbLocalGroups, "local-groups", false, "Enumerate local groups and their members via SAMR+LSA")
 	smbCmd.Flags().BoolVar(&smbSessions, "sessions", false, "Enumerate active SMB sessions via srvsvc (useful on DCs to spot admin sessions)")
-	for _, f := range []string{"shares", "null-session", "gpp-passwords", "rid-brute", "rid-start", "rid-end", "local-groups", "sessions"} {
+	smbCmd.Flags().StringVar(&smbWhoHasPriv, "who-has-priv", "", `List accounts holding a privilege (e.g. SeDebugPrivilege) or "all" for every non-empty privilege`)
+	for _, f := range []string{"shares", "null-session", "gpp-passwords", "rid-brute", "rid-start", "rid-end", "local-groups", "sessions", "who-has-priv"} {
 		smbCmd.Flags().SetAnnotation(f, "group", []string{"Enumeration"})
 	}
 
