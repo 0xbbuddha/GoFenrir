@@ -25,6 +25,7 @@ var (
 	smbRIDStart     uint32
 	smbRIDEnd       uint32
 	smbLocalGroups  bool
+	smbSessions     bool
 )
 
 var smbCmd = &cobra.Command{
@@ -158,6 +159,23 @@ func runSMB(cmd *cobra.Command, args []string) {
 			}
 		}
 
+		if smbSessions {
+			sessions, err := smbenum.EnumSessions(session)
+			if err != nil {
+				out.Failure(fmt.Sprintf("[SMB] Sessions: %s", err.Error()))
+			} else {
+				out.Section("Active Sessions", len(sessions))
+				for i, s := range sessions {
+					last := i == len(sessions)-1
+					label := fmt.Sprintf("%s -> %s", s.Client, s.Username)
+					if s.Time > 0 {
+						label += fmt.Sprintf(" (connected %s, idle %s)", fmtDuration(s.Time), fmtDuration(s.IdleTime))
+					}
+					out.TreeEntryColored(label, core.ColorYellow, last)
+				}
+			}
+		}
+
 		if smbLocalGroups {
 			groups, err := smbenum.LocalGroups(session)
 			if err != nil {
@@ -211,6 +229,16 @@ func runSMB(cmd *cobra.Command, args []string) {
 	})
 }
 
+func fmtDuration(secs uint32) string {
+	if secs < 60 {
+		return fmt.Sprintf("%ds", secs)
+	}
+	if secs < 3600 {
+		return fmt.Sprintf("%dm%ds", secs/60, secs%60)
+	}
+	return fmt.Sprintf("%dh%dm", secs/3600, (secs%3600)/60)
+}
+
 func init() {
 	smbCmd.Flags().StringVarP(&smbTarget, "target", "t", "", "Target IP, hostname, CIDR, or file path")
 	smbCmd.Flags().StringVarP(&smbUsername, "username", "u", "", "Username or file of usernames")
@@ -229,7 +257,8 @@ func init() {
 	smbCmd.Flags().Uint32Var(&smbRIDStart, "rid-start", 500, "Starting RID for cycling fallback")
 	smbCmd.Flags().Uint32Var(&smbRIDEnd, "rid-end", 4000, "Ending RID for cycling fallback")
 	smbCmd.Flags().BoolVar(&smbLocalGroups, "local-groups", false, "Enumerate local groups and their members via SAMR+LSA")
-	for _, f := range []string{"shares", "null-session", "gpp-passwords", "rid-brute", "rid-start", "rid-end", "local-groups"} {
+	smbCmd.Flags().BoolVar(&smbSessions, "sessions", false, "Enumerate active SMB sessions via srvsvc (useful on DCs to spot admin sessions)")
+	for _, f := range []string{"shares", "null-session", "gpp-passwords", "rid-brute", "rid-start", "rid-end", "local-groups", "sessions"} {
 		smbCmd.Flags().SetAnnotation(f, "group", []string{"Enumeration"})
 	}
 
