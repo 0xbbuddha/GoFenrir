@@ -62,7 +62,7 @@ func KerberoastActive(entries []KerberoastableEntry, username, password, realm, 
 	var results []KerberoastHash
 	for _, e := range entries {
 		for _, spn := range e.SPNs {
-			ticket, _, err := client.GetTGS(spn, false)
+			ticket, _, err := client.GetTGS(spn)
 			if err != nil {
 				continue
 			}

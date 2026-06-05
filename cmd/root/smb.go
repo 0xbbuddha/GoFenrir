@@ -21,6 +21,9 @@ var (
 	smbCheckShares  bool
 	smbNullSession  bool
 	smbGPPPasswords bool
+	smbRIDBrute     bool
+	smbRIDStart     uint32
+	smbRIDEnd       uint32
 )
 
 var smbCmd = &cobra.Command{
@@ -124,6 +127,36 @@ func runSMB(cmd *cobra.Command, args []string) {
 			}
 		}
 
+		if smbRIDBrute {
+			domains, err := smbenum.RIDBrute(session, smbRIDStart, smbRIDEnd)
+			if err != nil {
+				out.Failure(fmt.Sprintf("[SMB] RID Brute: %s", err.Error()))
+			} else {
+				for _, dom := range domains {
+					total := len(dom.Users) + len(dom.Groups) + len(dom.Aliases)
+					out.Section(fmt.Sprintf("Domain: %s", dom.Name), total)
+					all := make([]smbenum.SAMREntry, 0, total)
+					all = append(all, dom.Users...)
+					all = append(all, dom.Groups...)
+					all = append(all, dom.Aliases...)
+					for i, e := range all {
+						last := i == len(all)-1
+						label := fmt.Sprintf("[RID %-5d] %s (%s)", e.RID, e.Name, e.Type)
+						var color string
+						switch e.Type {
+						case "user":
+							color = core.ColorGreen
+						case "computer":
+							color = core.ColorYellow
+						default:
+							color = core.ColorBlue
+						}
+						out.TreeEntryColored(label, color, last)
+					}
+				}
+			}
+		}
+
 		if smbCheckShares {
 			results := smbenum.CheckShareAccess(session, smbenum.CommonShares)
 			accessible := 0
@@ -161,7 +194,10 @@ func init() {
 	smbCmd.Flags().BoolVar(&smbCheckShares, "shares", false, "Enumerate shares and check access")
 	smbCmd.Flags().BoolVar(&smbNullSession, "null-session", false, "Check for null/anonymous session")
 	smbCmd.Flags().BoolVar(&smbGPPPasswords, "gpp-passwords", false, "Search SYSVOL for GPP cpasswords and decrypt them (MS14-025)")
-	for _, f := range []string{"shares", "null-session", "gpp-passwords"} {
+	smbCmd.Flags().BoolVar(&smbRIDBrute, "rid-brute", false, "Enumerate users/groups via SAMR (RID cycling fallback if enumeration denied)")
+	smbCmd.Flags().Uint32Var(&smbRIDStart, "rid-start", 500, "Starting RID for cycling fallback")
+	smbCmd.Flags().Uint32Var(&smbRIDEnd, "rid-end", 4000, "Ending RID for cycling fallback")
+	for _, f := range []string{"shares", "null-session", "gpp-passwords", "rid-brute", "rid-start", "rid-end"} {
 		smbCmd.Flags().SetAnnotation(f, "group", []string{"Enumeration"})
 	}
 
