@@ -80,6 +80,7 @@ Enumeration:
 Domain:
       --admin-count            Find objects with adminCount=1 (AdminSDHolder protected)
       --domain-info            Get domain info (functional level, SID, PDC, DNS servers, naming contexts)
+      --find-aces              Enumerate dangerous ACEs on domain object, groups, users and computers
       --privileged-groups      Enumerate privileged groups and their members (Domain Admins, Enterprise Admins, etc.)
       --pso                    Enumerate Fine-Grained Password Policies (PSO) and their targets
 
@@ -128,8 +129,14 @@ Connection:
 
 Enumeration:
       --gpp-passwords          Search SYSVOL for GPP cpasswords and decrypt them (MS14-025)
+      --local-groups           Enumerate local groups and their members via SAMR+LSA
       --null-session           Check for null/anonymous session
+      --rid-brute              Enumerate users/groups via SAMR (RID cycling fallback if enumeration denied)
+      --rid-start uint32       Starting RID for cycling fallback (default 500)
+      --rid-end uint32         Ending RID for cycling fallback (default 4000)
+      --sessions               Enumerate active SMB sessions via srvsvc (useful on DCs to spot admin sessions)
       --shares                 Enumerate shares and check access
+      --who-has-priv string    List accounts holding a privilege (e.g. SeDebugPrivilege) or "all" for every non-empty privilege
 
 Global:
       --threads int            Number of concurrent threads (default 1)
