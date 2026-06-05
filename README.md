@@ -58,49 +58,49 @@ Usage:
 Interact with LDAP/LDAPS
 
 Connection:
-  -d, --domain string          Domain
-  -H, --hash string            NT hash (format: [LM:]NT)
-  -p, --password string        Password or file of passwords
-      --port int               LDAP port
-  -t, --target string          Target IP, hostname, CIDR, or file path
-      --tls                    Use LDAPS (TLS, port 636)
-  -u, --username string        Username or file of usernames
+  -d, --domain string                  Domain
+  -H, --hash string                    NT hash (format: [LM:]NT)
+  -p, --password string                Password or file of passwords
+      --port int                       LDAP port
+  -t, --target string                  Target IP, hostname, CIDR, or file path
+      --tls                            Use LDAPS (TLS, port 636)
+  -u, --username string                Username or file of usernames
 
 Enumeration:
-      --admins                 Enumerate domain admins
-      --computers              Enumerate computer accounts with OS info
-      --dcs                    Enumerate domain controllers
-      --gpos                   Enumerate Group Policy Objects
-      --groups                 Enumerate groups
-      --ous                    Enumerate Organizational Units
-      --pwd-policy             Get password policy
-      --trusts                 Enumerate domain trusts
-      --users                  Enumerate users
+      --admins                         Enumerate domain admins
+      --computers                      Enumerate computer accounts with OS info
+      --dcs                            Enumerate domain controllers
+      --gpos                           Enumerate Group Policy Objects
+      --groups                         Enumerate groups
+      --ous                            Enumerate Organizational Units
+      --pwd-policy                     Get password policy
+      --trusts                         Enumerate domain trusts
+      --users                          Enumerate users
 
 Domain:
-      --admin-count            Find objects with adminCount=1 (AdminSDHolder protected)
-      --domain-info            Get domain info (functional level, SID, PDC, DNS servers, naming contexts)
-      --find-aces              Enumerate dangerous ACEs on domain object, groups, users and computers
-      --privileged-groups      Enumerate privileged groups and their members (Domain Admins, Enterprise Admins, etc.)
-      --pso                    Enumerate Fine-Grained Password Policies (PSO) and their targets
+      --admin-count                    Find objects with adminCount=1 (AdminSDHolder protected)
+      --domain-info                    Get domain info (functional level, SID, PDC, DNS servers, naming contexts)
+      --privileged-groups              Enumerate privileged groups and their members (Domain Admins, Enterprise Admins, etc.)
+      --pso                            Enumerate Fine-Grained Password Policies (PSO) and their targets
 
 Kerberos:
-      --asreproast             Find AS-REP roastable accounts (pre-auth disabled)
-      --kerberoastable         Find kerberoastable accounts (SPN-based)
+      --asreproast                     Find AS-REP roastable accounts (pre-auth disabled)
+      --kerberoastable                 Find kerberoastable accounts (SPN-based)
 
 Delegation:
-      --constrained            Find accounts with constrained delegation + SPNs
-      --rbcd                   Find accounts with resource-based constrained delegation configured
-      --unconstrained          Find accounts with unconstrained delegation (excludes DCs)
+      --constrained                    Find accounts with constrained delegation + SPNs
+      --rbcd                           Find accounts with resource-based constrained delegation configured
+      --unconstrained                  Find accounts with unconstrained delegation (excludes DCs)
 
 ADCS:
-      --adcs                   Enumerate CAs and templates, detect ESC1/ESC2/ESC3/ESC4/ESC9
+      --adcs                           Enumerate CAs and templates, detect ESC1/ESC2/ESC3/ESC4/ESC9
 
 Credential Attacks:
-      --laps                   Dump LAPS passwords (LAPSv1: ms-Mcs-AdmPwd, LAPSv2: msLAPS-Password)
-      --shadow-creds           Find objects with shadow credentials (msDS-KeyCredentialLink)
-      --weak-accounts          Find accounts with dangerous UAC flags (no pwd required, reversible encryption, DES...)
-      --gmsa                   Dump gMSA passwords as NT hashes (requires read access to msDS-ManagedPassword)
+      --find-aces                      Find dangerous ACEs (GenericAll, WriteDACL, ForceChangePassword, DCSync...) on domain, groups, adminCount users, computers
+      --gmsa                           Dump gMSA passwords as NT hashes (requires read access to msDS-ManagedPassword)
+      --laps                           Dump LAPS passwords (LAPSv1: ms-Mcs-AdmPwd, LAPSv2: msLAPS-Password)
+      --shadow-creds                   Find objects with shadow credentials (msDS-KeyCredentialLink)
+      --weak-accounts                  Find accounts with dangerous UAC flags (no pwd required, reversible encryption, DES...)
 
 Global:
       --threads int            Number of concurrent threads (default 1)
@@ -120,23 +120,23 @@ Usage:
 Interact with SMB (v1)
 
 Connection:
-  -d, --domain string          Domain
-  -H, --hash string            NT hash (format: [LM:]NT)
-  -p, --password string        Password or file of passwords
-      --port int               SMB port
-  -t, --target string          Target IP, hostname, CIDR, or file path
-  -u, --username string        Username or file of usernames
+  -d, --domain string                  Domain
+  -H, --hash string                    NT hash (format: [LM:]NT)
+  -p, --password string                Password or file of passwords
+      --port int                       SMB port
+  -t, --target string                  Target IP, hostname, CIDR, or file path
+  -u, --username string                Username or file of usernames
 
 Enumeration:
-      --gpp-passwords          Search SYSVOL for GPP cpasswords and decrypt them (MS14-025)
-      --local-groups           Enumerate local groups and their members via SAMR+LSA
-      --null-session           Check for null/anonymous session
-      --rid-brute              Enumerate users/groups via SAMR (RID cycling fallback if enumeration denied)
-      --rid-start uint32       Starting RID for cycling fallback (default 500)
-      --rid-end uint32         Ending RID for cycling fallback (default 4000)
-      --sessions               Enumerate active SMB sessions via srvsvc (useful on DCs to spot admin sessions)
-      --shares                 Enumerate shares and check access
-      --who-has-priv string    List accounts holding a privilege (e.g. SeDebugPrivilege) or "all" for every non-empty privilege
+      --gpp-passwords                  Search SYSVOL for GPP cpasswords and decrypt them (MS14-025)
+      --local-groups                   Enumerate local groups and their members via SAMR+LSA
+      --null-session                   Check for null/anonymous session
+      --rid-brute                      Enumerate users/groups via SAMR (RID cycling fallback if enumeration denied)
+      --rid-end uint32                 Ending RID for cycling fallback
+      --rid-start uint32               Starting RID for cycling fallback
+      --sessions                       Enumerate active SMB sessions via srvsvc (useful on DCs to spot admin sessions)
+      --shares                         Enumerate shares and check access
+      --who-has-priv string            List accounts holding a privilege (e.g. SeDebugPrivilege) or "all" for every non-empty privilege
 
 Global:
       --threads int            Number of concurrent threads (default 1)

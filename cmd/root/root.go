@@ -119,11 +119,11 @@ func customHelp(cmd *cobra.Command, args []string) {
 				} else {
 					shorthand = "    "
 				}
-				if f.Value.Type() == "bool" {
-					fmt.Printf("  %s--%-30s %s\n", shorthand, f.Name, f.Usage)
-				} else {
-					fmt.Printf("  %s--%-22s %s\n", shorthand, f.Name+" "+f.Value.Type(), f.Usage)
+				nameCol := f.Name
+				if f.Value.Type() != "bool" {
+					nameCol = f.Name + " " + f.Value.Type()
 				}
+				fmt.Printf("  %s--%-30s %s\n", shorthand, nameCol, f.Usage)
 			}
 		}
 
