@@ -8,7 +8,6 @@ import (
 	"github.com/TheManticoreProject/Manticore/network/dcerpc/interfaces/12345778-1234-abcd-ef00-0123456789ac/1.0/functions"
 	"github.com/TheManticoreProject/Manticore/network/dcerpc/interfaces/12345778-1234-abcd-ef00-0123456789ac/1.0/structures"
 	dcerpcclient "github.com/TheManticoreProject/Manticore/network/dcerpc/v5/client"
-	dcerpcsmb "github.com/TheManticoreProject/Manticore/network/dcerpc/v5/transport/smb"
 
 	gofenrirsmb "github.com/0xbbuddha/GoFenrir/protocols/smb"
 )
@@ -38,8 +37,11 @@ func RIDBrute(session *gofenrirsmb.Session, ridStart, ridEnd uint32) ([]DomainRe
 		return nil, fmt.Errorf("IPC$: %w", err)
 	}
 
-	pipe := dcerpcsmb.New(session.Client, samr.PipeName)
-	rpc := dcerpcclient.NewClient(pipe)
+	transport, err := session.Client.RPCTransport(samr.PipeName)
+	if err != nil {
+		return nil, fmt.Errorf("open samr pipe: %w", err)
+	}
+	rpc := dcerpcclient.NewClient(transport)
 	if err := rpc.Bind(samr.SyntaxID()); err != nil {
 		return nil, fmt.Errorf("SAMR bind: %w", err)
 	}
