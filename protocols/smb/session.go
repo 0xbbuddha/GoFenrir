@@ -2,9 +2,8 @@ package smb
 
 import (
 	"fmt"
-	"net"
 
-	smbclient "github.com/TheManticoreProject/Manticore/network/smb/smb_v10/client"
+	smbclient "github.com/TheManticoreProject/Manticore/network/smb/client"
 	"github.com/TheManticoreProject/Manticore/windows/credentials"
 )
 
@@ -15,28 +14,18 @@ type Session struct {
 }
 
 func NewSession(host string, port int, domain, username, password, hash string) (*Session, error) {
-	ips, err := net.LookupHost(host)
-	if err != nil {
-		return nil, fmt.Errorf("cannot resolve host %s: %w", host, err)
-	}
-
-	ip := net.ParseIP(ips[0])
-	if ip == nil {
-		return nil, fmt.Errorf("invalid IP address: %s", ips[0])
-	}
-
 	creds, err := credentials.NewCredentials(domain, username, password, hash)
 	if err != nil {
 		return nil, fmt.Errorf("invalid credentials: %w", err)
 	}
 
-	c := smbclient.NewClientUsingTCPTransport(ip, port)
-
-	if err := c.Connect(ip, port); err != nil {
+	c, err := smbclient.Dial(host, port, smbclient.Options{})
+	if err != nil {
 		return nil, fmt.Errorf("connection failed: %w", err)
 	}
 
-	if err := c.SessionSetup(creds); err != nil {
+	if err := c.Login(creds); err != nil {
+		c.Disconnect()
 		return nil, fmt.Errorf("authentication failed: %w", err)
 	}
 
@@ -49,4 +38,8 @@ func NewSession(host string, port int, domain, username, password, hash string) 
 
 func (s *Session) TreeConnect(share string) error {
 	return s.Client.TreeConnect(share)
+}
+
+func (s *Session) Close() {
+	s.Client.Disconnect()
 }

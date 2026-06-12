@@ -11,7 +11,6 @@ import (
 	samrstructures "github.com/TheManticoreProject/Manticore/network/dcerpc/interfaces/12345778-1234-abcd-ef00-0123456789ac/1.0/structures"
 	"github.com/TheManticoreProject/Manticore/network/dcerpc/ndr"
 	dcerpcclient "github.com/TheManticoreProject/Manticore/network/dcerpc/v5/client"
-	dcerpcsmb "github.com/TheManticoreProject/Manticore/network/dcerpc/v5/transport/smb"
 
 	gofenrirsmb "github.com/0xbbuddha/GoFenrir/protocols/smb"
 )
@@ -37,16 +36,22 @@ func LocalGroups(session *gofenrirsmb.Session) ([]LocalGroup, error) {
 	}
 
 	// SAMR over \samr named pipe
-	samrPipe := dcerpcsmb.New(session.Client, samr.PipeName)
-	samrRPC := dcerpcclient.NewClient(samrPipe)
+	samrTransport, err := session.Client.RPCTransport(samr.PipeName)
+	if err != nil {
+		return nil, fmt.Errorf("open samr pipe: %w", err)
+	}
+	samrRPC := dcerpcclient.NewClient(samrTransport)
 	if err := samrRPC.Bind(samr.SyntaxID()); err != nil {
 		return nil, fmt.Errorf("SAMR bind: %w", err)
 	}
 	defer samrRPC.Close()
 
 	// LSA over \lsarpc named pipe (separate FID, same SMB session)
-	lsaPipe := dcerpcsmb.New(session.Client, lsarpc.PipeName)
-	lsaRPC := dcerpcclient.NewClient(lsaPipe)
+	lsaTransport, err := session.Client.RPCTransport(lsarpc.PipeName)
+	if err != nil {
+		return nil, fmt.Errorf("open lsarpc pipe: %w", err)
+	}
+	lsaRPC := dcerpcclient.NewClient(lsaTransport)
 	if err := lsaRPC.Bind(lsarpc.SyntaxID()); err != nil {
 		return nil, fmt.Errorf("LSA bind: %w", err)
 	}

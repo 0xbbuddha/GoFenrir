@@ -9,7 +9,6 @@ import (
 	lsastructures "github.com/TheManticoreProject/Manticore/network/dcerpc/interfaces/12345778-1234-abcd-ef00-0123456789ab/0.0/structures"
 	"github.com/TheManticoreProject/Manticore/network/dcerpc/ndr"
 	dcerpcclient "github.com/TheManticoreProject/Manticore/network/dcerpc/v5/client"
-	dcerpcsmb "github.com/TheManticoreProject/Manticore/network/dcerpc/v5/transport/smb"
 
 	gofenrirsmb "github.com/0xbbuddha/GoFenrir/protocols/smb"
 )
@@ -31,8 +30,11 @@ func WhoHasPriv(session *gofenrirsmb.Session, privFilter string) ([]PrivEntry, e
 		return nil, fmt.Errorf("IPC$: %w", err)
 	}
 
-	pipe := dcerpcsmb.New(session.Client, lsarpc.PipeName)
-	rpc := dcerpcclient.NewClient(pipe)
+	transport, err := session.Client.RPCTransport(lsarpc.PipeName)
+	if err != nil {
+		return nil, fmt.Errorf("open lsarpc pipe: %w", err)
+	}
+	rpc := dcerpcclient.NewClient(transport)
 	if err := rpc.Bind(lsarpc.SyntaxID()); err != nil {
 		return nil, fmt.Errorf("lsarpc bind: %w", err)
 	}
