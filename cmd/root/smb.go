@@ -30,6 +30,7 @@ var (
 	smbServerInfo      bool
 	smbEnumServices    bool
 	smbServicesFilter  string
+	smbCheckAutoLogon  bool
 )
 
 var smbCmd = &cobra.Command{
@@ -224,6 +225,37 @@ func runSMB(cmd *cobra.Command, args []string) {
 			}
 		}
 
+		if smbCheckAutoLogon {
+			al, err := smbenum.GetAutoLogon(session)
+			if err != nil {
+				out.Failure(fmt.Sprintf("[SMB] AutoLogon: %s", err.Error()))
+			} else {
+				out.Section("AutoLogon", 1)
+				if al.Enabled {
+					out.TreeEntryColored("AutoAdminLogon: ENABLED", core.ColorRed, false)
+				} else {
+					out.TreeEntryColored("AutoAdminLogon: disabled", core.ColorGreen, false)
+				}
+				hasUser := al.Username != ""
+				hasPass := al.Password != ""
+				hasDomain := al.Domain != ""
+				last := !hasUser && !hasPass && !hasDomain
+				if last {
+					out.TreeEntry("No credentials stored", true)
+				} else {
+					if hasDomain {
+						out.TreeDetail("Domain", al.Domain, false)
+					}
+					if hasUser {
+						out.TreeDetail("Username", al.Username, !hasPass)
+					}
+					if hasPass {
+						out.TreeDetail("Password", al.Password, true)
+					}
+				}
+			}
+		}
+
 		if smbEnumServices {
 			svcs, err := smbenum.EnumServices(session, smbServicesFilter)
 			if err != nil {
@@ -352,7 +384,8 @@ func init() {
 	smbCmd.Flags().BoolVar(&smbServerInfo, "server-info", false, "Query server name, OS version and roles via srvsvc NetrServerGetInfo")
 	smbCmd.Flags().BoolVar(&smbEnumServices, "services", false, "Enumerate services via MS-SCMR (svcctl) including binary path and run-as account")
 	smbCmd.Flags().StringVar(&smbServicesFilter, "services-filter", "", `Filter services by state: "running" or "stopped" (default: all)`)
-	for _, f := range []string{"shares", "null-session", "gpp-passwords", "rid-brute", "rid-start", "rid-end", "local-groups", "sessions", "who-has-priv", "server-info", "services", "services-filter"} {
+	smbCmd.Flags().BoolVar(&smbCheckAutoLogon, "check-autologon", false, "Read AutoLogon credentials from HKLM\\...\\Winlogon via MS-RRP (winreg)")
+	for _, f := range []string{"shares", "null-session", "gpp-passwords", "rid-brute", "rid-start", "rid-end", "local-groups", "sessions", "who-has-priv", "server-info", "services", "services-filter", "check-autologon"} {
 		smbCmd.Flags().SetAnnotation(f, "group", []string{"Enumeration"})
 	}
 
