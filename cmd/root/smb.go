@@ -26,8 +26,10 @@ var (
 	smbRIDEnd       uint32
 	smbLocalGroups  bool
 	smbSessions     bool
-	smbWhoHasPriv   string
-	smbServerInfo   bool
+	smbWhoHasPriv      string
+	smbServerInfo      bool
+	smbEnumServices    bool
+	smbServicesFilter  string
 )
 
 var smbCmd = &cobra.Command{
@@ -222,6 +224,48 @@ func runSMB(cmd *cobra.Command, args []string) {
 			}
 		}
 
+		if smbEnumServices {
+			svcs, err := smbenum.EnumServices(session, smbServicesFilter)
+			if err != nil {
+				out.Failure(fmt.Sprintf("[SMB] Services: %s", err.Error()))
+			} else {
+				out.Section("Services", len(svcs))
+				for i, svc := range svcs {
+					lastSvc := i == len(svcs)-1
+
+					type kv struct{ k, v string }
+					var details []kv
+					if svc.DisplayName != "" && svc.DisplayName != svc.Name {
+						details = append(details, kv{"Display", svc.DisplayName})
+					}
+					if svc.BinaryPath != "" {
+						details = append(details, kv{"Path", svc.BinaryPath})
+					}
+					if svc.Account != "" {
+						details = append(details, kv{"Account", svc.Account})
+					}
+					if svc.StartType != "" {
+						details = append(details, kv{"Start", svc.StartType})
+					}
+
+					var color string
+					switch svc.State {
+					case "Running":
+						color = core.ColorGreen
+					case "Stopped":
+						color = core.ColorRed
+					default:
+						color = core.ColorYellow
+					}
+					label := fmt.Sprintf("[%-12s] %s", svc.State, svc.Name)
+					out.TreeEntryColored(label, color, lastSvc && len(details) == 0)
+					for di, d := range details {
+						out.TreeDetail(d.k, d.v, lastSvc && di == len(details)-1)
+					}
+				}
+			}
+		}
+
 		if smbLocalGroups {
 			groups, err := smbenum.LocalGroups(session)
 			if err != nil {
@@ -306,7 +350,9 @@ func init() {
 	smbCmd.Flags().BoolVar(&smbSessions, "sessions", false, "Enumerate active SMB sessions via srvsvc (useful on DCs to spot admin sessions)")
 	smbCmd.Flags().StringVar(&smbWhoHasPriv, "who-has-priv", "", `List accounts holding a privilege (e.g. SeDebugPrivilege) or "all" for every non-empty privilege`)
 	smbCmd.Flags().BoolVar(&smbServerInfo, "server-info", false, "Query server name, OS version and roles via srvsvc NetrServerGetInfo")
-	for _, f := range []string{"shares", "null-session", "gpp-passwords", "rid-brute", "rid-start", "rid-end", "local-groups", "sessions", "who-has-priv", "server-info"} {
+	smbCmd.Flags().BoolVar(&smbEnumServices, "services", false, "Enumerate services via MS-SCMR (svcctl) including binary path and run-as account")
+	smbCmd.Flags().StringVar(&smbServicesFilter, "services-filter", "", `Filter services by state: "running" or "stopped" (default: all)`)
+	for _, f := range []string{"shares", "null-session", "gpp-passwords", "rid-brute", "rid-start", "rid-end", "local-groups", "sessions", "who-has-priv", "server-info", "services", "services-filter"} {
 		smbCmd.Flags().SetAnnotation(f, "group", []string{"Enumeration"})
 	}
 
