@@ -27,6 +27,7 @@ var (
 	smbLocalGroups  bool
 	smbSessions     bool
 	smbWhoHasPriv   string
+	smbServerInfo   bool
 )
 
 var smbCmd = &cobra.Command{
@@ -100,6 +101,26 @@ func runSMB(cmd *cobra.Command, args []string) {
 			authMsg += fmt.Sprintf(" (Pass-the-Hash: %s%s%s)", core.ColorYellow, job.Cred.Hash, core.ColorReset)
 		}
 		out.Success(authMsg)
+
+		if smbServerInfo {
+			info, err := smbenum.GetServerInfo(session)
+			if err != nil {
+				out.Failure(fmt.Sprintf("[SMB] Server Info: %s", err.Error()))
+			} else {
+				out.Section("Server Info", 1)
+				label := info.Version
+				if info.OSHint != "" {
+					label = fmt.Sprintf("%s (%s)", info.Version, info.OSHint)
+				}
+				hasComment := info.Comment != ""
+				out.TreeDetail("Name", info.Name, false)
+				out.TreeDetail("OS", label, false)
+				out.TreeDetail("Roles", smbenum.FormatServerType(info.Roles), !hasComment)
+				if hasComment {
+					out.TreeDetail("Comment", info.Comment, true)
+				}
+			}
+		}
 
 		if smbGPPPasswords {
 			entries, err := smbcreds.FindGPPPasswords(job.Target, smbPort, smbDomain, job.Cred.Username, job.Cred.Password, job.Cred.Hash)
@@ -284,7 +305,8 @@ func init() {
 	smbCmd.Flags().BoolVar(&smbLocalGroups, "local-groups", false, "Enumerate local groups and their members via SAMR+LSA")
 	smbCmd.Flags().BoolVar(&smbSessions, "sessions", false, "Enumerate active SMB sessions via srvsvc (useful on DCs to spot admin sessions)")
 	smbCmd.Flags().StringVar(&smbWhoHasPriv, "who-has-priv", "", `List accounts holding a privilege (e.g. SeDebugPrivilege) or "all" for every non-empty privilege`)
-	for _, f := range []string{"shares", "null-session", "gpp-passwords", "rid-brute", "rid-start", "rid-end", "local-groups", "sessions", "who-has-priv"} {
+	smbCmd.Flags().BoolVar(&smbServerInfo, "server-info", false, "Query server name, OS version and roles via srvsvc NetrServerGetInfo")
+	for _, f := range []string{"shares", "null-session", "gpp-passwords", "rid-brute", "rid-start", "rid-end", "local-groups", "sessions", "who-has-priv", "server-info"} {
 		smbCmd.Flags().SetAnnotation(f, "group", []string{"Enumeration"})
 	}
 
