@@ -11,6 +11,7 @@ import (
 	smbcoerce "github.com/0xbbuddha/GoFenrir/modules/smb/coerce"
 	smbenum "github.com/0xbbuddha/GoFenrir/modules/smb/enumeration"
 	smbexec "github.com/0xbbuddha/GoFenrir/modules/smb/exec"
+	smbspider "github.com/0xbbuddha/GoFenrir/modules/smb/spider"
 	"github.com/0xbbuddha/GoFenrir/protocols/smb"
 	"github.com/spf13/cobra"
 )
@@ -41,6 +42,9 @@ var (
 	smbEnumShares      bool
 	smbExec            string
 	smbNoOutput        bool
+	smbSpider          string
+	smbSpiderFilter    string
+	smbSpiderDepth     int
 )
 
 var smbCmd = &cobra.Command{
@@ -479,8 +483,50 @@ func runSMB(cmd *cobra.Command, args []string) {
 			}
 		}
 
+		if smbSpider != "" {
+			spiderOpts := smbspider.Options{
+				Share:  smbSpider,
+				Depth:  smbSpiderDepth,
+				Filter: smbSpiderFilter,
+			}
+			files, err := smbspider.Spider(session, spiderOpts)
+			if err != nil {
+				out.Failure(fmt.Sprintf("[SMB] Spider: %s", err.Error()))
+			} else {
+				shareLabel := smbSpider
+				if smbSpiderFilter != "" {
+					shareLabel = fmt.Sprintf("%s (filter: %s)", smbSpider, smbSpiderFilter)
+				}
+				out.Section(fmt.Sprintf("Spider %s", shareLabel), len(files))
+				for i, f := range files {
+					last := i == len(files)-1
+					label := fmt.Sprintf("[%s] %s", f.Share, f.Path)
+					if f.Size > 0 {
+						label += fmt.Sprintf(" (%s)", fmtSize(f.Size))
+					}
+					out.TreeEntryColored(label, core.ColorGreen, last)
+				}
+				if len(files) == 0 {
+					out.TreeEntry("No matching files found", true)
+				}
+			}
+		}
+
 		out.Flush()
 	})
+}
+
+func fmtSize(n uint64) string {
+	switch {
+	case n >= 1<<30:
+		return fmt.Sprintf("%.1fGB", float64(n)/(1<<30))
+	case n >= 1<<20:
+		return fmt.Sprintf("%.1fMB", float64(n)/(1<<20))
+	case n >= 1<<10:
+		return fmt.Sprintf("%.1fKB", float64(n)/(1<<10))
+	default:
+		return fmt.Sprintf("%dB", n)
+	}
 }
 
 func fmtDuration(secs uint32) string {
@@ -523,7 +569,10 @@ func init() {
 	smbCmd.Flags().BoolVar(&smbEnumShares, "enum-shares", false, "Enumerate all shares via srvsvc NetrShareEnum with type, comment, and access check")
 	smbCmd.Flags().StringVar(&smbExec, "exec", "", "Execute a command on the target via smbexec (MS-SCMR service + C$ output file)")
 	smbCmd.Flags().BoolVar(&smbNoOutput, "no-output", false, "Suppress command output (use with --exec for fire-and-forget)")
-	for _, f := range []string{"shares", "null-session", "gpp-passwords", "rid-brute", "rid-start", "rid-end", "local-groups", "sessions", "who-has-priv", "server-info", "services", "services-filter", "check-autologon", "enum-rpc", "coerce-to", "lsa-settings", "enum-shares", "exec", "no-output"} {
+	smbCmd.Flags().StringVar(&smbSpider, "spider", "", `Recursively list files on a share (e.g. SYSVOL) or "all" for every readable share`)
+	smbCmd.Flags().StringVar(&smbSpiderFilter, "spider-filter", "", `Glob pattern to match filenames (e.g. "*.xml", "pass*", default: all files)`)
+	smbCmd.Flags().IntVar(&smbSpiderDepth, "depth", 0, "Maximum spider recursion depth (0 = unlimited)")
+	for _, f := range []string{"shares", "null-session", "gpp-passwords", "rid-brute", "rid-start", "rid-end", "local-groups", "sessions", "who-has-priv", "server-info", "services", "services-filter", "check-autologon", "enum-rpc", "coerce-to", "lsa-settings", "enum-shares", "exec", "no-output", "spider", "spider-filter", "depth"} {
 		smbCmd.Flags().SetAnnotation(f, "group", []string{"Enumeration"})
 	}
 
