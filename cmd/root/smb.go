@@ -45,6 +45,7 @@ var (
 	smbSpider          string
 	smbSpiderFilter    string
 	smbSpiderDepth     int
+	smbPasswordSpray   bool
 )
 
 var smbCmd = &cobra.Command{
@@ -101,6 +102,26 @@ func runSMB(cmd *cobra.Command, args []string) {
 		for _, cred := range creds {
 			jobs = append(jobs, core.Job{Target: target, Cred: cred})
 		}
+	}
+
+	if smbPasswordSpray {
+		core.RunConcurrent(jobs, Threads, func(job core.Job) {
+			_, err := smb.NewSession(job.Target, smbPort, smbDomain, job.Cred.Username, job.Cred.Password, job.Cred.Hash)
+			out := &core.OutputBuffer{}
+			if err != nil {
+				out.TreeEntryColored(fmt.Sprintf("%-30s %s", job.Cred.Username, err.Error()), core.ColorRed, false)
+			} else {
+				cred := job.Cred.Username
+				if job.Cred.Hash != "" {
+					cred += " (hash: " + job.Cred.Hash + ")"
+				} else {
+					cred += " / " + job.Cred.Password
+				}
+				out.TreeEntryColored(fmt.Sprintf("%-30s VALID", cred), core.ColorGreen, false)
+			}
+			out.Flush()
+		})
+		return
 	}
 
 	core.RunConcurrent(jobs, Threads, func(job core.Job) {
@@ -572,7 +593,8 @@ func init() {
 	smbCmd.Flags().StringVar(&smbSpider, "spider", "", `Recursively list files on a share (e.g. SYSVOL) or "all" for every readable share`)
 	smbCmd.Flags().StringVar(&smbSpiderFilter, "spider-filter", "", `Glob pattern to match filenames (e.g. "*.xml", "pass*", default: all files)`)
 	smbCmd.Flags().IntVar(&smbSpiderDepth, "depth", 0, "Maximum spider recursion depth (0 = unlimited)")
-	for _, f := range []string{"shares", "null-session", "gpp-passwords", "rid-brute", "rid-start", "rid-end", "local-groups", "sessions", "who-has-priv", "server-info", "services", "services-filter", "check-autologon", "enum-rpc", "coerce-to", "lsa-settings", "enum-shares", "exec", "no-output", "spider", "spider-filter", "depth"} {
+	smbCmd.Flags().BoolVar(&smbPasswordSpray, "password-spray", false, "Test credentials only (no enumeration) — use with -u file and -p password")
+	for _, f := range []string{"shares", "null-session", "gpp-passwords", "rid-brute", "rid-start", "rid-end", "local-groups", "sessions", "who-has-priv", "server-info", "services", "services-filter", "check-autologon", "enum-rpc", "coerce-to", "lsa-settings", "enum-shares", "exec", "no-output", "spider", "spider-filter", "depth", "password-spray"} {
 		smbCmd.Flags().SetAnnotation(f, "group", []string{"Enumeration"})
 	}
 
