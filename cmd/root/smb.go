@@ -4,10 +4,13 @@ import (
 	"fmt"
 	"os"
 
+	"strings"
+
 	"github.com/0xbbuddha/GoFenrir/core"
 	smbcreds "github.com/0xbbuddha/GoFenrir/modules/smb/credentials"
 	smbcoerce "github.com/0xbbuddha/GoFenrir/modules/smb/coerce"
 	smbenum "github.com/0xbbuddha/GoFenrir/modules/smb/enumeration"
+	smbexec "github.com/0xbbuddha/GoFenrir/modules/smb/exec"
 	"github.com/0xbbuddha/GoFenrir/protocols/smb"
 	"github.com/spf13/cobra"
 )
@@ -36,6 +39,8 @@ var (
 	smbCoerceTo        string
 	smbLSASettings     bool
 	smbEnumShares      bool
+	smbExec            string
+	smbNoOutput        bool
 )
 
 var smbCmd = &cobra.Command{
@@ -442,6 +447,19 @@ func runSMB(cmd *cobra.Command, args []string) {
 			}
 		}
 
+		if smbExec != "" {
+			output, err := smbexec.Exec(session, smbExec)
+			if err != nil {
+				out.Failure(fmt.Sprintf("[SMB] Exec: %s", err.Error()))
+			} else if !smbNoOutput {
+				lines := strings.Split(strings.TrimRight(output, "\r\n"), "\n")
+				out.Section(fmt.Sprintf("Exec: %s", smbExec), len(lines))
+				for i, l := range lines {
+					out.TreeEntryColored(strings.TrimRight(l, "\r"), core.ColorReset, i == len(lines)-1)
+				}
+			}
+		}
+
 		if smbCheckShares {
 			results := smbenum.CheckShareAccess(session, smbenum.CommonShares)
 			accessible := 0
@@ -503,7 +521,9 @@ func init() {
 	smbCmd.Flags().StringVar(&smbCoerceTo, "coerce-to", "", "Trigger PetitPotam (MS-EFSR) coercion: target authenticates to <attacker_ip> (capture with Responder)")
 	smbCmd.Flags().BoolVar(&smbLSASettings, "lsa-settings", false, "Read LSA security settings: WDigest, RunAsPPL, LmCompatibilityLevel, null session restrictions")
 	smbCmd.Flags().BoolVar(&smbEnumShares, "enum-shares", false, "Enumerate all shares via srvsvc NetrShareEnum with type, comment, and access check")
-	for _, f := range []string{"shares", "null-session", "gpp-passwords", "rid-brute", "rid-start", "rid-end", "local-groups", "sessions", "who-has-priv", "server-info", "services", "services-filter", "check-autologon", "enum-rpc", "coerce-to", "lsa-settings", "enum-shares"} {
+	smbCmd.Flags().StringVar(&smbExec, "exec", "", "Execute a command on the target via smbexec (MS-SCMR service + C$ output file)")
+	smbCmd.Flags().BoolVar(&smbNoOutput, "no-output", false, "Suppress command output (use with --exec for fire-and-forget)")
+	for _, f := range []string{"shares", "null-session", "gpp-passwords", "rid-brute", "rid-start", "rid-end", "local-groups", "sessions", "who-has-priv", "server-info", "services", "services-filter", "check-autologon", "enum-rpc", "coerce-to", "lsa-settings", "enum-shares", "exec", "no-output"} {
 		smbCmd.Flags().SetAnnotation(f, "group", []string{"Enumeration"})
 	}
 
