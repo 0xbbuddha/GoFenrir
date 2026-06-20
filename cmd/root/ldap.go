@@ -48,6 +48,7 @@ var (
 	ldapEnumGMSA               bool
 	ldapEnumPSO                bool
 	ldapEnumACEs               bool
+	ldapPasswordSpray          bool
 )
 
 var ldapCmd = &cobra.Command{
@@ -84,6 +85,32 @@ func runLDAP(cmd *cobra.Command, args []string) {
 	effectivePort := ldapPort
 	if ldapTLS && ldapPort == 389 {
 		effectivePort = 636
+	}
+
+	if ldapPasswordSpray {
+		core.RunConcurrent(jobs, Threads, func(job core.Job) {
+			out := &core.OutputBuffer{}
+			sess, err := ldap.NewSession(job.Target, effectivePort, ldapDomain, job.Cred.Username, job.Cred.Password, job.Cred.Hash, ldapTLS)
+			if err == nil {
+				err = sess.Connect()
+				if err == nil {
+					sess.Close()
+				}
+			}
+			if err != nil {
+				out.TreeEntryColored(fmt.Sprintf("%-30s %s", job.Cred.Username, err.Error()), core.ColorRed, false)
+			} else {
+				cred := job.Cred.Username
+				if job.Cred.Hash != "" {
+					cred += " (hash: " + job.Cred.Hash + ")"
+				} else {
+					cred += " / " + job.Cred.Password
+				}
+				out.TreeEntryColored(fmt.Sprintf("%-30s VALID", cred), core.ColorGreen, false)
+			}
+			out.Flush()
+		})
+		return
 	}
 
 	core.RunConcurrent(jobs, Threads, func(job core.Job) {
@@ -650,7 +677,8 @@ func init() {
 
 	ldapCmd.Flags().BoolVar(&ldapEnumKerberoast, "kerberoastable", false, "Find kerberoastable accounts (SPN-based)")
 	ldapCmd.Flags().BoolVar(&ldapEnumASREP, "asreproast", false, "Find AS-REP roastable accounts (pre-auth disabled)")
-	for _, f := range []string{"kerberoastable", "asreproast"} {
+	ldapCmd.Flags().BoolVar(&ldapPasswordSpray, "password-spray", false, "Test credentials only (no enumeration) — use with -u file and -p password")
+	for _, f := range []string{"kerberoastable", "asreproast", "password-spray"} {
 		ldapCmd.Flags().SetAnnotation(f, "group", []string{"Kerberos"})
 	}
 
