@@ -31,6 +31,7 @@ var (
 	smbRIDEnd       uint32
 	smbLocalGroups  bool
 	smbSessions     bool
+	smbLoggedOn     bool
 	smbWhoHasPriv      string
 	smbServerInfo      bool
 	smbEnumServices    bool
@@ -41,6 +42,7 @@ var (
 	smbLSASettings     bool
 	smbEnumShares      bool
 	smbExec            string
+	smbExecMethod      string
 	smbNoOutput        bool
 	smbSpider          string
 	smbSpiderFilter    string
@@ -215,6 +217,23 @@ func runSMB(cmd *cobra.Command, args []string) {
 						}
 						out.TreeEntryColored(label, color, last)
 					}
+				}
+			}
+		}
+
+		if smbLoggedOn {
+			users, err := smbenum.LoggedOnUsers(session)
+			if err != nil {
+				out.Failure(fmt.Sprintf("[SMB] LoggedOn: %s", err.Error()))
+			} else {
+				out.Section("Logged-on Users", len(users))
+				for i, u := range users {
+					last := i == len(users)-1
+					label := u.Username
+					if u.LogonDomain != "" {
+						label = u.LogonDomain + "\\" + u.Username
+					}
+					out.TreeEntryColored(label, core.ColorYellow, last)
 				}
 			}
 		}
@@ -473,7 +492,14 @@ func runSMB(cmd *cobra.Command, args []string) {
 		}
 
 		if smbExec != "" {
-			output, err := smbexec.Exec(session, smbExec)
+			var output string
+			var err error
+			switch strings.ToLower(smbExecMethod) {
+			case "atexec":
+				output, err = smbexec.AtExec(session, smbExec)
+			default:
+				output, err = smbexec.Exec(session, smbExec)
+			}
 			if err != nil {
 				out.Failure(fmt.Sprintf("[SMB] Exec: %s", err.Error()))
 			} else if !smbNoOutput {
@@ -578,6 +604,7 @@ func init() {
 	smbCmd.Flags().Uint32Var(&smbRIDStart, "rid-start", 500, "Starting RID for cycling fallback")
 	smbCmd.Flags().Uint32Var(&smbRIDEnd, "rid-end", 4000, "Ending RID for cycling fallback")
 	smbCmd.Flags().BoolVar(&smbLocalGroups, "local-groups", false, "Enumerate local groups and their members via SAMR+LSA")
+	smbCmd.Flags().BoolVar(&smbLoggedOn, "loggedon-users", false, "Enumerate logged-on users via MS-WKST (NetrWkstaUserEnum)")
 	smbCmd.Flags().BoolVar(&smbSessions, "sessions", false, "Enumerate active SMB sessions via srvsvc (useful on DCs to spot admin sessions)")
 	smbCmd.Flags().StringVar(&smbWhoHasPriv, "who-has-priv", "", `List accounts holding a privilege (e.g. SeDebugPrivilege) or "all" for every non-empty privilege`)
 	smbCmd.Flags().BoolVar(&smbServerInfo, "server-info", false, "Query server name, OS version and roles via srvsvc NetrServerGetInfo")
@@ -588,13 +615,14 @@ func init() {
 	smbCmd.Flags().StringVar(&smbCoerceTo, "coerce-to", "", "Trigger PetitPotam (MS-EFSR) coercion: target authenticates to <attacker_ip> (capture with Responder)")
 	smbCmd.Flags().BoolVar(&smbLSASettings, "lsa-settings", false, "Read LSA security settings: WDigest, RunAsPPL, LmCompatibilityLevel, null session restrictions")
 	smbCmd.Flags().BoolVar(&smbEnumShares, "enum-shares", false, "Enumerate all shares via srvsvc NetrShareEnum with type, comment, and access check")
-	smbCmd.Flags().StringVar(&smbExec, "exec", "", "Execute a command on the target via smbexec (MS-SCMR service + C$ output file)")
+	smbCmd.Flags().StringVar(&smbExec, "exec", "", "Execute a command on the target (see --exec-method)")
+	smbCmd.Flags().StringVar(&smbExecMethod, "exec-method", "smbexec", "Execution method: smbexec (MS-SCMR service) or atexec (MS-TSCH scheduled task)")
 	smbCmd.Flags().BoolVar(&smbNoOutput, "no-output", false, "Suppress command output (use with --exec for fire-and-forget)")
 	smbCmd.Flags().StringVar(&smbSpider, "spider", "", `Recursively list files on a share (e.g. SYSVOL) or "all" for every readable share`)
 	smbCmd.Flags().StringVar(&smbSpiderFilter, "spider-filter", "", `Glob pattern to match filenames (e.g. "*.xml", "pass*", default: all files)`)
 	smbCmd.Flags().IntVar(&smbSpiderDepth, "depth", 0, "Maximum spider recursion depth (0 = unlimited)")
 	smbCmd.Flags().BoolVar(&smbPasswordSpray, "password-spray", false, "Test credentials only (no enumeration) - use with -u file and -p password")
-	for _, f := range []string{"shares", "null-session", "gpp-passwords", "rid-brute", "rid-start", "rid-end", "local-groups", "sessions", "who-has-priv", "server-info", "services", "services-filter", "check-autologon", "enum-rpc", "coerce-to", "lsa-settings", "enum-shares", "exec", "no-output", "spider", "spider-filter", "depth", "password-spray"} {
+	for _, f := range []string{"shares", "null-session", "gpp-passwords", "rid-brute", "rid-start", "rid-end", "local-groups", "sessions", "loggedon-users", "who-has-priv", "server-info", "services", "services-filter", "check-autologon", "enum-rpc", "coerce-to", "lsa-settings", "enum-shares", "exec", "exec-method", "no-output", "spider", "spider-filter", "depth", "password-spray"} {
 		smbCmd.Flags().SetAnnotation(f, "group", []string{"Enumeration"})
 	}
 
