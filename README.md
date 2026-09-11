@@ -148,6 +148,7 @@ Connection:
 Enumeration:
       --gpp-passwords                  Search SYSVOL for GPP cpasswords and decrypt them (MS14-025)
       --local-groups                   Enumerate local groups and their members via SAMR+LSA
+      --loggedon-users                 Enumerate logged-on users via MS-WKST (NetrWkstaUserEnum)
       --null-session                   Check for null/anonymous session
       --rid-brute                      Enumerate users/groups via SAMR (RID cycling fallback if enumeration denied)
       --rid-end uint32                 Ending RID for cycling fallback
@@ -155,6 +156,10 @@ Enumeration:
       --sessions                       Enumerate active SMB sessions via srvsvc (useful on DCs to spot admin sessions)
       --shares                         Enumerate shares and check access
       --who-has-priv string            List accounts holding a privilege (e.g. SeDebugPrivilege) or "all" for every non-empty privilege
+
+Execution:
+      --exec string                    Execute a command on the target (see --exec-method)
+      --exec-method string             Execution method: smbexec (MS-SCMR service) or atexec (MS-TSCH scheduled task)
 
 Global:
       --threads int            Number of concurrent threads (default 1)
