@@ -17,9 +17,8 @@ GoFenrir is an Active Directory offensive framework inspired by [NetExec](https:
 | Protocol | Status | Notes |
 |----------|--------|-------|
 | LDAP / LDAPS | Working | Full enumeration + attack support |
-| SMB v1 | Working | Limited to targets with SMBv1 enabled |
-| SMB v2/v3 | Planned | Waiting on Manticore |
-| Kerberos | Working | Kerberoast + ASREPRoast (native, no external library) |
+| SMB v1/v2/v3 | Working | Auto-negotiated (SMB1 legacy targets, SMB2/3 modern Windows) |
+| Kerberos | Working | Native (no external library): auth (`-k`/PTT), Kerberoast, ASREPRoast, DCSync, Shadow Credentials |
 
 Protocol support grows alongside [TheManticoreProject/Manticore](https://github.com/TheManticoreProject/Manticore).
 
@@ -31,7 +30,7 @@ Usage:
 
 Available Protocols:
   ldap       Interact with LDAP/LDAPS
-  smb        Interact with SMB (v1)
+  smb        Interact with SMB (v1/v2/v3)
 
 Global Flags:
   -t, --target string     Target IP or hostname
@@ -89,17 +88,36 @@ Kerberos:
 
 Delegation:
       --constrained                    Find accounts with constrained delegation + SPNs
+      --impersonate string             User to impersonate for --s4u and forged tickets (default "Administrator")
       --rbcd                           Find accounts with resource-based constrained delegation configured
+      --s4u string                     Constrained-delegation abuse: S4U2Self+S4U2Proxy to this target SPN, export ccache/kirbi
       --unconstrained                  Find accounts with unconstrained delegation (excludes DCs)
+
+Ticket Forging:
+      --golden                         Forge a golden ticket (--forge-key = krbtgt key); exports ccache/kirbi
+      --silver string                  Forge a silver ticket for this SPN (--forge-key = service account key)
+      --forge-key string               Signing key (hex): NT hash (RC4) or AES128/256 key
+      --forge-sid string               Domain SID (auto-resolved from the domain when omitted)
+      --forge-rid uint32               RID of the impersonated account (default 500)
+      --out string                     Base filename for exported tickets
 
 ADCS:
       --adcs                           Enumerate CAs and templates, detect ESC1/ESC2/ESC3/ESC4/ESC9
 
+Authentication:
+  -k, --kerberos                       Authenticate with Kerberos (GSSAPI); derives a TGT from password/hash/AES key or uses a ccache/kirbi
+      --aes-key string                 Kerberos AES128/AES256 key (hex) for authentication (implies -k)
+      --ccache string                  Path to a Kerberos ccache (FILE) for pass-the-ticket (implies -k)
+      --kirbi string                   Path to a .kirbi (KRB-CRED) for pass-the-ticket (implies -k)
+      --keytab string                  Path to a Kerberos keytab for authentication (implies -k)
+
 Credential Attacks:
+      --dcsync string                  DCSync secrets via MS-DRSR ("all", "DOMAIN\user", UPN, DN, or username; needs replication rights)
       --find-aces                      Find dangerous ACEs (GenericAll, WriteDACL, ForceChangePassword, DCSync...) on domain, groups, adminCount users, computers
       --gmsa                           Dump gMSA passwords as NT hashes (requires read access to msDS-ManagedPassword)
       --laps                           Dump LAPS passwords (LAPSv1: ms-Mcs-AdmPwd, LAPSv2: msLAPS-Password)
       --shadow-creds                   Find objects with shadow credentials (msDS-KeyCredentialLink)
+      --shadow-creds-add string        Shadow Credentials attack: write msDS-KeyCredentialLink, PKINIT, UnPAC-the-hash, clean up (needs GenericWrite over target)
       --weak-accounts                  Find accounts with dangerous UAC flags (no pwd required, reversible encryption, DES...)
 
 Global:
@@ -117,7 +135,7 @@ Global:
 Usage:
   gf smb [flags]
 
-Interact with SMB (v1)
+Interact with SMB
 
 Connection:
   -d, --domain string                  Domain

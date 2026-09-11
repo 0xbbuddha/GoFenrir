@@ -50,7 +50,7 @@ var (
 
 var smbCmd = &cobra.Command{
 	Use:   "smb",
-	Short: "Interact with SMB (v1)",
+	Short: "Interact with SMB (v1/v2/v3)",
 	Run:   runSMB,
 }
 
