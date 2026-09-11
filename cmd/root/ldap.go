@@ -814,7 +814,7 @@ func init() {
 
 	ldapCmd.Flags().BoolVar(&ldapEnumKerberoast, "kerberoastable", false, "Find kerberoastable accounts (SPN-based)")
 	ldapCmd.Flags().BoolVar(&ldapEnumASREP, "asreproast", false, "Find AS-REP roastable accounts (pre-auth disabled)")
-	ldapCmd.Flags().BoolVar(&ldapPasswordSpray, "password-spray", false, "Test credentials only (no enumeration) — use with -u file and -p password")
+	ldapCmd.Flags().BoolVar(&ldapPasswordSpray, "password-spray", false, "Test credentials only (no enumeration) - use with -u file and -p password")
 	for _, f := range []string{"kerberoastable", "asreproast", "password-spray"} {
 		ldapCmd.Flags().SetAnnotation(f, "group", []string{"Kerberos"})
 	}

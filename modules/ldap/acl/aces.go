@@ -23,7 +23,7 @@ type ACEEntry struct {
 	Severity    string // "critical", "high", "medium"
 }
 
-// Dangerous access masks — flagged when held by a non-privileged trustee.
+// Dangerous access masks - flagged when held by a non-privileged trustee.
 var dangerousMasks = []struct {
 	Mask     uint32
 	Name     string
@@ -60,7 +60,7 @@ var dangerousPropertyGUIDs = map[string]struct {
 
 // Fixed well-known privileged or noisy trustee SIDs to always skip.
 var alwaysSkipSIDs = map[string]bool{
-	"S-1-5-10":    true, // Principal Self — objects always have rights over themselves
+	"S-1-5-10":    true, // Principal Self - objects always have rights over themselves
 	"S-1-5-18":    true, // SYSTEM
 	"S-1-5-9":     true, // Enterprise Domain Controllers
 	"S-1-3-0":     true, // Creator Owner
@@ -75,7 +75,7 @@ var alwaysSkipSIDs = map[string]bool{
 
 // EnumDangerousACEs finds dangerous ACEs on high-value AD objects.
 // Scope: domain object, all groups, adminCount=1 users, all computers.
-// Inherited ACEs are skipped — they reflect default AD schema permissions and create noise.
+// Inherited ACEs are skipped - they reflect default AD schema permissions and create noise.
 func EnumDangerousACEs(s *ldap.Session) ([]ACEEntry, error) {
 	domainSID, err := getDomainSID(s)
 	if err != nil {
@@ -163,7 +163,7 @@ func aclForObject(s *ldap.Session, dn, objectType, objectName string, skipSIDs m
 
 		inherited := ace.Header.Flags.RawValue&aceflags.ACE_FLAG_INHERITED != 0
 		if inherited {
-			continue // skip default schema inheritance — overwhelming noise, rarely actionable
+			continue // skip default schema inheritance - overwhelming noise, rarely actionable
 		}
 		mask := ace.Mask.RawValue
 

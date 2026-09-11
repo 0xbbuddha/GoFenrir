@@ -10,7 +10,7 @@
 
 ## What is GoFenrir?
 
-GoFenrir is an Active Directory offensive framework inspired by [NetExec](https://github.com/Pennyw0rth/NetExec). Where NetExec relies on Impacket, GoFenrir uses [Manticore](https://github.com/TheManticoreProject/Manticore) as its protocol backend. Everything is written in Go — single binary, no Python, no dependency hell.
+GoFenrir is an Active Directory offensive framework inspired by [NetExec](https://github.com/Pennyw0rth/NetExec). Where NetExec relies on Impacket, GoFenrir uses [Manticore](https://github.com/TheManticoreProject/Manticore) as its protocol backend. Everything is written in Go - single binary, no Python, no dependency hell.
 
 ## Supported Protocols
 

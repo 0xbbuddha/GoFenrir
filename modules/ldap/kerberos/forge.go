@@ -96,7 +96,7 @@ func forgeOptions(realm, domainSID, user string, rid uint32, keyHex string, keyE
 	if keyEType == 0 {
 		switch len(key) {
 		case 16:
-			keyEType = 23 // RC4-HMAC (NT hash) — the common case; override with --forge-key-etype 17 for AES128
+			keyEType = 23 // RC4-HMAC (NT hash) - the common case; override with --forge-key-etype 17 for AES128
 		case 32:
 			keyEType = 18 // AES256-CTS-HMAC-SHA1-96
 		default:

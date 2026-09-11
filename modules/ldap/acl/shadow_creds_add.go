@@ -23,7 +23,7 @@ type ShadowCredResult struct {
 
 // AddShadowCred runs the full Shadow Credentials attack against target: it writes a
 // self-signed certificate's public key to the target's msDS-KeyCredentialLink
-// (requires write access to that attribute — GenericWrite/GenericAll), authenticates
+// (requires write access to that attribute - GenericWrite/GenericAll), authenticates
 // as the target with certificate-based PKINIT to obtain a TGT, recovers the NT hash
 // with UnPAC-the-hash, then removes the key credential it added.
 //

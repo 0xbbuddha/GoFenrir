@@ -90,7 +90,7 @@ func execViaService(session *gofenrirsmb.Session, svcName, binaryPath string) er
 	startErr := svcctlfunctions.RStartServiceW(rpc, hSvc, 0, nil)
 	if startErr != nil && !strings.Contains(startErr.Error(), "1053") {
 		// 1053 = ERROR_SERVICE_REQUEST_TIMEOUT: cmd.exe exited before SCM
-		// could confirm it's running — this is normal for transient services.
+		// could confirm it's running - this is normal for transient services.
 		_ = svcctlfunctions.RDeleteService(rpc, hSvc)
 		svcctlfunctions.RCloseServiceHandle(rpc, hSvc)
 		return fmt.Errorf("StartService: %w", startErr)
