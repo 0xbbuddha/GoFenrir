@@ -83,7 +83,7 @@ func customHelp(cmd *cobra.Command, args []string) {
 		}
 
 		// Collect flags by group, preserving definition order within each group
-		groupOrder := []string{"Connection", "Enumeration", "Domain", "Kerberos", "Delegation", "ADCS", "Credential Attacks"}
+		groupOrder := []string{"Connection", "Authentication", "Enumeration", "Domain", "Kerberos", "Delegation", "Ticket Forging", "ADCS", "Credential Attacks"}
 		groups := map[string][]*pflag.Flag{}
 		cmd.LocalFlags().VisitAll(func(f *pflag.Flag) {
 			if f.Name == "help" {
