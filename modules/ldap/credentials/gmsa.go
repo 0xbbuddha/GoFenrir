@@ -26,7 +26,7 @@ type GMSAEntry struct {
 //   - NT hash via msDS-ManagedPassword (if the caller is in the allowed group)
 //   - Who can read the password via msDS-GroupMSAMembership (always readable)
 //
-// msDS-ManagedPassword is a dynamically constructed attribute — it cannot be fetched
+// msDS-ManagedPassword is a dynamically constructed attribute - it cannot be fetched
 // in a subtree search. We enumerate accounts first, then query each DN individually.
 func EnumGMSA(s *ldap.Session) ([]GMSAEntry, error) {
 	accounts, err := s.LdapSession.QueryWholeSubtree(
@@ -44,7 +44,7 @@ func EnumGMSA(s *ldap.Session) ([]GMSAEntry, error) {
 		dn := account.GetAttributeValue("distinguishedName")
 		e := GMSAEntry{SAMAccountName: sam, DN: dn}
 
-		// msDS-GroupMSAMembership is a regular attribute — readable by authenticated users.
+		// msDS-GroupMSAMembership is a regular attribute - readable by authenticated users.
 		// Query it separately so a denied msDS-ManagedPassword read doesn't suppress it.
 		memberEntries, err := s.LdapSession.QueryBaseObject(
 			dn,
@@ -57,7 +57,7 @@ func EnumGMSA(s *ldap.Session) ([]GMSAEntry, error) {
 			}
 		}
 
-		// msDS-ManagedPassword is a dynamically constructed attribute — only returned when
+		// msDS-ManagedPassword is a dynamically constructed attribute - only returned when
 		// the caller is in PrincipalsAllowedToRetrieveManagedPassword.
 		pwEntries, err := s.LdapSession.QueryBaseObject(
 			dn,

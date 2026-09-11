@@ -21,8 +21,8 @@ type Session struct {
 // the password/hash passed to the session.
 type KerberosAuth struct {
 	AESKey string // hex-encoded AES128/AES256 Kerberos key
-	CCache string // path to a FILE ccache (KRB5CCNAME) — pass-the-ticket
-	Kirbi  string // path to a .kirbi (KRB-CRED) — pass-the-ticket
+	CCache string // path to a FILE ccache (KRB5CCNAME) - pass-the-ticket
+	Kirbi  string // path to a .kirbi (KRB-CRED) - pass-the-ticket
 	Keytab string // path to a keytab file
 }
 

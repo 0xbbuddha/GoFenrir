@@ -128,7 +128,7 @@ func EnumADCS(s *ldap.Session) ([]CAEntry, []TemplateEntry, error) {
 		}
 		isESC3 := hasCertRequestAgent && !requiresApproval && raSignature == 0
 
-		// ESC9: CT_FLAG_NO_SECURITY_EXTENSION — CA won't embed szOID_NTDS_CA_SECURITY_EXT in the
+		// ESC9: CT_FLAG_NO_SECURITY_EXTENSION - CA won't embed szOID_NTDS_CA_SECURITY_EXT in the
 		// issued certificate. Without this SID-binding extension, an attacker with GenericWrite over
 		// a victim can change the victim's UPN, enroll a certificate, revert the UPN, and then
 		// authenticate as the victim via PKINIT (CVE-2022-26923 variant).
@@ -282,7 +282,7 @@ func parseDACL(sd []byte) ([]aceEntry, error) {
 		aceData := sd[offset : offset+int(aceSize)]
 
 		switch aceType {
-		case 0x00: // ACCESS_ALLOWED_ACE — WriteProperty here means write any property
+		case 0x00: // ACCESS_ALLOWED_ACE - WriteProperty here means write any property
 			if len(aceData) >= 12 {
 				mask := binary.LittleEndian.Uint32(aceData[4:8])
 				if mask&dangerousAce != 0 {
@@ -291,7 +291,7 @@ func parseDACL(sd []byte) ([]aceEntry, error) {
 					}
 				}
 			}
-		case 0x05: // ACCESS_ALLOWED_OBJECT_ACE — WriteProperty is scoped to one attribute GUID
+		case 0x05: // ACCESS_ALLOWED_OBJECT_ACE - WriteProperty is scoped to one attribute GUID
 			if len(aceData) >= 16 {
 				mask := binary.LittleEndian.Uint32(aceData[4:8])
 				if mask&dangerousObjectAce != 0 {

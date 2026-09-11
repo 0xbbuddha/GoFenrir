@@ -11,7 +11,7 @@ type ConstrainedDelegationEntry struct {
 	SAMAccountName     string
 	DN                 string
 	AllowedServices    []string
-	ProtocolTransition bool // TRUSTED_TO_AUTH_FOR_DELEGATION (0x1000000) — S4U2Self enabled
+	ProtocolTransition bool // TRUSTED_TO_AUTH_FOR_DELEGATION (0x1000000) - S4U2Self enabled
 }
 
 // EnumConstrainedDelegation finds objects with msDS-AllowedToDelegateTo set.

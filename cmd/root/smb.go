@@ -593,7 +593,7 @@ func init() {
 	smbCmd.Flags().StringVar(&smbSpider, "spider", "", `Recursively list files on a share (e.g. SYSVOL) or "all" for every readable share`)
 	smbCmd.Flags().StringVar(&smbSpiderFilter, "spider-filter", "", `Glob pattern to match filenames (e.g. "*.xml", "pass*", default: all files)`)
 	smbCmd.Flags().IntVar(&smbSpiderDepth, "depth", 0, "Maximum spider recursion depth (0 = unlimited)")
-	smbCmd.Flags().BoolVar(&smbPasswordSpray, "password-spray", false, "Test credentials only (no enumeration) — use with -u file and -p password")
+	smbCmd.Flags().BoolVar(&smbPasswordSpray, "password-spray", false, "Test credentials only (no enumeration) - use with -u file and -p password")
 	for _, f := range []string{"shares", "null-session", "gpp-passwords", "rid-brute", "rid-start", "rid-end", "local-groups", "sessions", "who-has-priv", "server-info", "services", "services-filter", "check-autologon", "enum-rpc", "coerce-to", "lsa-settings", "enum-shares", "exec", "no-output", "spider", "spider-filter", "depth", "password-spray"} {
 		smbCmd.Flags().SetAnnotation(f, "group", []string{"Enumeration"})
 	}

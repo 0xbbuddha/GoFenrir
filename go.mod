@@ -3,7 +3,7 @@ module github.com/0xbbuddha/GoFenrir
 go 1.26.1
 
 require (
-	github.com/TheManticoreProject/Manticore v1.1.5
+	github.com/TheManticoreProject/Manticore v1.1.7-0.20260911092215-a5737a7bcfd2
 	github.com/TheManticoreProject/winacl v1.3.1
 	github.com/jfjallid/go-smb v0.5.7
 	github.com/spf13/cobra v1.10.2
@@ -14,6 +14,7 @@ require (
 
 require (
 	github.com/Azure/go-ntlmssp v0.0.0-20221128193559-754e69321358 // indirect
+	github.com/TheManticoreProject/goopts v1.2.4 // indirect
 	github.com/alexbrainman/sspi v0.0.0-20250919150558-7d374ff0d59e // indirect
 	github.com/go-asn1-ber/asn1-ber v1.5.8-0.20250403174932-29230038a667 // indirect
 	github.com/go-ldap/ldap/v3 v3.4.12 // indirect
@@ -30,4 +31,6 @@ require (
 	github.com/jfjallid/gokrb5/v8 v8.4.4 // indirect
 	github.com/jfjallid/golog v0.3.3 // indirect
 	golang.org/x/net v0.46.0 // indirect
+	golang.org/x/sys v0.37.0 // indirect
+	golang.org/x/term v0.36.0 // indirect
 )
