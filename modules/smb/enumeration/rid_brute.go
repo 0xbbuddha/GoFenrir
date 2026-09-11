@@ -6,7 +6,7 @@ import (
 
 	samr "github.com/TheManticoreProject/Manticore/network/dcerpc/interfaces/12345778-1234-abcd-ef00-0123456789ac/1.0"
 	"github.com/TheManticoreProject/Manticore/network/dcerpc/interfaces/12345778-1234-abcd-ef00-0123456789ac/1.0/functions"
-	"github.com/TheManticoreProject/Manticore/network/dcerpc/interfaces/12345778-1234-abcd-ef00-0123456789ac/1.0/structures"
+	mssamr "github.com/TheManticoreProject/Manticore/windows/protocols/ms-samr"
 	dcerpcclient "github.com/TheManticoreProject/Manticore/network/dcerpc/v5/client"
 
 	gofenrirsmb "github.com/0xbbuddha/GoFenrir/protocols/smb"
@@ -124,7 +124,7 @@ func RIDBrute(session *gofenrirsmb.Session, ridStart, ridEnd uint32) ([]DomainRe
 
 // ridCycle resolves RIDs [start, end] in batches via SamrLookupIdsInDomain,
 // collecting entries whose SID_NAME_USE indicates a real account.
-func ridCycle(rpc *dcerpcclient.Client, domHandle structures.SAMPR_HANDLE, start, end uint32) []SAMREntry {
+func ridCycle(rpc *dcerpcclient.Client, domHandle mssamr.SAMPR_HANDLE, start, end uint32) []SAMREntry {
 	var entries []SAMREntry
 
 	for base := start; base <= end; base += ridBatchSize {
@@ -151,7 +151,7 @@ func ridCycle(rpc *dcerpcclient.Client, domHandle structures.SAMPR_HANDLE, start
 			if name == "" {
 				continue
 			}
-			sidUse := structures.SID_NAME_USE(use.Element[i])
+			sidUse := mssamr.SID_NAME_USE(use.Element[i])
 			t := sidUseToType(sidUse)
 			if t == "" {
 				continue
@@ -163,17 +163,17 @@ func ridCycle(rpc *dcerpcclient.Client, domHandle structures.SAMPR_HANDLE, start
 	return entries
 }
 
-func sidUseToType(u structures.SID_NAME_USE) string {
+func sidUseToType(u mssamr.SID_NAME_USE) string {
 	switch u {
-	case structures.SidTypeUser:
+	case mssamr.SidTypeUser:
 		return "user"
-	case structures.SidTypeGroup:
+	case mssamr.SidTypeGroup:
 		return "group"
-	case structures.SidTypeAlias:
+	case mssamr.SidTypeAlias:
 		return "alias"
-	case structures.SidTypeComputer:
+	case mssamr.SidTypeComputer:
 		return "computer"
-	case structures.SidTypeWellKnownGroup:
+	case mssamr.SidTypeWellKnownGroup:
 		return "group"
 	default:
 		return ""

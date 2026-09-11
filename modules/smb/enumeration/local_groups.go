@@ -5,10 +5,11 @@ import (
 
 	lsarpc "github.com/TheManticoreProject/Manticore/network/dcerpc/interfaces/12345778-1234-abcd-ef00-0123456789ab/0.0"
 	lsafunctions "github.com/TheManticoreProject/Manticore/network/dcerpc/interfaces/12345778-1234-abcd-ef00-0123456789ab/0.0/functions"
-	lsastructures "github.com/TheManticoreProject/Manticore/network/dcerpc/interfaces/12345778-1234-abcd-ef00-0123456789ab/0.0/structures"
+	mslsad "github.com/TheManticoreProject/Manticore/windows/protocols/ms-lsad"
+	mslsat "github.com/TheManticoreProject/Manticore/windows/protocols/ms-lsat"
 	samr "github.com/TheManticoreProject/Manticore/network/dcerpc/interfaces/12345778-1234-abcd-ef00-0123456789ac/1.0"
 	samrfunctions "github.com/TheManticoreProject/Manticore/network/dcerpc/interfaces/12345778-1234-abcd-ef00-0123456789ac/1.0/functions"
-	samrstructures "github.com/TheManticoreProject/Manticore/network/dcerpc/interfaces/12345778-1234-abcd-ef00-0123456789ac/1.0/structures"
+	mssamr "github.com/TheManticoreProject/Manticore/windows/protocols/ms-samr"
 	"github.com/TheManticoreProject/Manticore/network/dcerpc/ndr"
 	dcerpcclient "github.com/TheManticoreProject/Manticore/network/dcerpc/v5/client"
 
@@ -122,16 +123,16 @@ func LocalGroups(session *gofenrirsmb.Session) ([]LocalGroup, error) {
 }
 
 // resolveMemberSIDs translates the SID list from SamrGetMembersInAlias into names.
-func resolveMemberSIDs(lsaRPC *dcerpcclient.Client, policy lsastructures.LSAPR_HANDLE, members samrstructures.SAMPR_PSID_ARRAY_OUT) []LocalGroupMember {
+func resolveMemberSIDs(lsaRPC *dcerpcclient.Client, policy mslsad.LSAPR_HANDLE, members mssamr.SAMPR_PSID_ARRAY_OUT) []LocalGroupMember {
 	// Build LSAPR_SID_ENUM_BUFFER from the SAMPR_PSID_ARRAY_OUT
-	sidInfos := make([]lsastructures.LSAPR_SID_INFORMATION, 0, int(members.Count))
+	sidInfos := make([]mslsat.LSAPR_SID_INFORMATION, 0, int(members.Count))
 	sidStrings := make([]string, 0, int(members.Count))
 
 	for _, info := range members.Sids {
 		if info.SidPointer == nil {
 			continue
 		}
-		sidInfos = append(sidInfos, lsastructures.LSAPR_SID_INFORMATION{
+		sidInfos = append(sidInfos, mslsat.LSAPR_SID_INFORMATION{
 			Sid: info.SidPointer,
 		})
 		sidStrings = append(sidStrings, info.SidPointer.String())
@@ -141,12 +142,12 @@ func resolveMemberSIDs(lsaRPC *dcerpcclient.Client, policy lsastructures.LSAPR_H
 		return nil
 	}
 
-	enumBuf := lsastructures.LSAPR_SID_ENUM_BUFFER{
+	enumBuf := mslsat.LSAPR_SID_ENUM_BUFFER{
 		Entries: ndr.DWORD(len(sidInfos)),
 		SidInfo: sidInfos,
 	}
 
-	_, translatedNames, _, err := lsafunctions.LsarLookupSids(lsaRPC, policy, enumBuf, lsastructures.LsapLookupWksta)
+	_, translatedNames, _, err := lsafunctions.LsarLookupSids(lsaRPC, policy, enumBuf, mslsat.LsapLookupWksta)
 
 	results := make([]LocalGroupMember, len(sidInfos))
 	for i := range sidInfos {
@@ -160,7 +161,7 @@ func resolveMemberSIDs(lsaRPC *dcerpcclient.Client, policy lsastructures.LSAPR_H
 			if n != "" {
 				results[i].Name = n
 			}
-			results[i].Type = sidUseToType(samrstructures.SID_NAME_USE(translatedNames.Names[i].Use))
+			results[i].Type = sidUseToType(mssamr.SID_NAME_USE(translatedNames.Names[i].Use))
 			if results[i].Type == "" {
 				results[i].Type = "unknown"
 			}

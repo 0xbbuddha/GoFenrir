@@ -6,7 +6,7 @@ import (
 
 	epm "github.com/TheManticoreProject/Manticore/network/dcerpc/interfaces/e1af8308-5d1f-11c9-91a4-08002b14a0fa/3.0"
 	epmfunctions "github.com/TheManticoreProject/Manticore/network/dcerpc/interfaces/e1af8308-5d1f-11c9-91a4-08002b14a0fa/3.0/functions"
-	epmstructs "github.com/TheManticoreProject/Manticore/network/dcerpc/interfaces/e1af8308-5d1f-11c9-91a4-08002b14a0fa/3.0/structures"
+	msrpce "github.com/TheManticoreProject/Manticore/windows/protocols/ms-rpce"
 	"github.com/TheManticoreProject/Manticore/network/dcerpc/interfaces/catalog"
 	dcerpcclient "github.com/TheManticoreProject/Manticore/network/dcerpc/v5/client"
 	"github.com/TheManticoreProject/Manticore/windows/guid"
@@ -57,7 +57,7 @@ func EnumRPCEndpoints(session *gofenrirsmb.Session) ([]RPCEndpoint, error) {
 		}
 
 		// Floor 0 is the interface identifier floor (FloorProtoUUID = 0x0D).
-		if len(tower.Floors) == 0 || tower.Floors[0].Protocol() != epmstructs.FloorProtoUUID {
+		if len(tower.Floors) == 0 || tower.Floors[0].Protocol() != msrpce.FloorProtoUUID {
 			continue
 		}
 		f0 := tower.Floors[0]

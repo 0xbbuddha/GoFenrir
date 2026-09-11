@@ -3,10 +3,11 @@ package enumeration
 import (
 	"fmt"
 
-	"github.com/TheManticoreProject/Manticore/network/dcerpc/dtyp"
+	msdtyp "github.com/TheManticoreProject/Manticore/windows/ms-dtyp"
 	lsarpc "github.com/TheManticoreProject/Manticore/network/dcerpc/interfaces/12345778-1234-abcd-ef00-0123456789ab/0.0"
 	lsafunctions "github.com/TheManticoreProject/Manticore/network/dcerpc/interfaces/12345778-1234-abcd-ef00-0123456789ab/0.0/functions"
-	lsastructures "github.com/TheManticoreProject/Manticore/network/dcerpc/interfaces/12345778-1234-abcd-ef00-0123456789ab/0.0/structures"
+	mslsad "github.com/TheManticoreProject/Manticore/windows/protocols/ms-lsad"
+	mslsat "github.com/TheManticoreProject/Manticore/windows/protocols/ms-lsat"
 	"github.com/TheManticoreProject/Manticore/network/dcerpc/ndr"
 	dcerpcclient "github.com/TheManticoreProject/Manticore/network/dcerpc/v5/client"
 
@@ -67,7 +68,7 @@ func WhoHasPriv(session *gofenrirsmb.Session, privFilter string) ([]PrivEntry, e
 	return results, nil
 }
 
-func enumPrivilegeNames(rpc *dcerpcclient.Client, policy lsastructures.LSAPR_HANDLE) ([]string, error) {
+func enumPrivilegeNames(rpc *dcerpcclient.Client, policy mslsad.LSAPR_HANDLE) ([]string, error) {
 	var names []string
 	var ctx uint32
 	for {
@@ -86,8 +87,8 @@ func enumPrivilegeNames(rpc *dcerpcclient.Client, policy lsastructures.LSAPR_HAN
 	return names, nil
 }
 
-func holdersForPriv(rpc *dcerpcclient.Client, policy lsastructures.LSAPR_HANDLE, privName string) ([]PrivHolder, error) {
-	right := dtyp.NewUnicodeString(privName)
+func holdersForPriv(rpc *dcerpcclient.Client, policy mslsad.LSAPR_HANDLE, privName string) ([]PrivHolder, error) {
+	right := msdtyp.NewUnicodeString(privName)
 	buf, err := lsafunctions.LsarEnumerateAccountsWithUserRight(rpc, policy, &right)
 	if err != nil {
 		return nil, err
@@ -96,24 +97,24 @@ func holdersForPriv(rpc *dcerpcclient.Client, policy lsastructures.LSAPR_HANDLE,
 		return nil, nil
 	}
 
-	sidInfos := make([]lsastructures.LSAPR_SID_INFORMATION, 0, int(buf.EntriesRead))
+	sidInfos := make([]mslsat.LSAPR_SID_INFORMATION, 0, int(buf.EntriesRead))
 	sidStrings := make([]string, 0, int(buf.EntriesRead))
 	for _, info := range buf.Information {
 		if info.Sid == nil {
 			continue
 		}
-		sidInfos = append(sidInfos, lsastructures.LSAPR_SID_INFORMATION{Sid: info.Sid})
+		sidInfos = append(sidInfos, mslsat.LSAPR_SID_INFORMATION{Sid: info.Sid})
 		sidStrings = append(sidStrings, info.Sid.String())
 	}
 	if len(sidInfos) == 0 {
 		return nil, nil
 	}
 
-	enumBuf := lsastructures.LSAPR_SID_ENUM_BUFFER{
+	enumBuf := mslsat.LSAPR_SID_ENUM_BUFFER{
 		Entries: ndr.DWORD(len(sidInfos)),
 		SidInfo: sidInfos,
 	}
-	_, translated, _, lookupErr := lsafunctions.LsarLookupSids(rpc, policy, enumBuf, lsastructures.LsapLookupWksta)
+	_, translated, _, lookupErr := lsafunctions.LsarLookupSids(rpc, policy, enumBuf, mslsat.LsapLookupWksta)
 
 	holders := make([]PrivHolder, len(sidInfos))
 	for i := range sidInfos {

@@ -3,10 +3,10 @@ package enumeration
 import (
 	"fmt"
 
-	"github.com/TheManticoreProject/Manticore/network/dcerpc/dtyp"
+	msdtyp "github.com/TheManticoreProject/Manticore/windows/ms-dtyp"
 	winreg "github.com/TheManticoreProject/Manticore/network/dcerpc/interfaces/338cd001-2244-31f1-aaaa-900038001003/1.0"
 	winregfunctions "github.com/TheManticoreProject/Manticore/network/dcerpc/interfaces/338cd001-2244-31f1-aaaa-900038001003/1.0/functions"
-	winregstructs "github.com/TheManticoreProject/Manticore/network/dcerpc/interfaces/338cd001-2244-31f1-aaaa-900038001003/1.0/structures"
+	msrrp "github.com/TheManticoreProject/Manticore/windows/protocols/ms-rrp"
 	"github.com/TheManticoreProject/Manticore/network/dcerpc/ndr"
 	dcerpcclient "github.com/TheManticoreProject/Manticore/network/dcerpc/v5/client"
 
@@ -91,13 +91,13 @@ func LmCompatLevelString(level uint32) string {
 	}
 }
 
-func openKey(rpc *dcerpcclient.Client, parent winregstructs.RPC_HKEY, path string) (winregstructs.RPC_HKEY, error) {
+func openKey(rpc *dcerpcclient.Client, parent msrrp.RPC_HKEY, path string) (msrrp.RPC_HKEY, error) {
 	return winregfunctions.BaseRegOpenKey(rpc, parent,
-		dtyp.NewUnicodeString(path+"\x00"),
+		msdtyp.NewUnicodeString(path+"\x00"),
 		0, ndr.DWORD(winreg.KeyRead))
 }
 
-func queryDWORD(rpc *dcerpcclient.Client, hkey winregstructs.RPC_HKEY, name string) *uint32 {
+func queryDWORD(rpc *dcerpcclient.Client, hkey msrrp.RPC_HKEY, name string) *uint32 {
 	dataType := ndr.DWORD(0)
 	bufSize := ndr.DWORD(4)
 	buf := make([]uint8, 4)
@@ -105,7 +105,7 @@ func queryDWORD(rpc *dcerpcclient.Client, hkey winregstructs.RPC_HKEY, name stri
 
 	_, data, lpcbData, _, err := winregfunctions.BaseRegQueryValue(
 		rpc, hkey,
-		dtyp.NewUnicodeString(name+"\x00"),
+		msdtyp.NewUnicodeString(name+"\x00"),
 		&dataType, buf, &bufSize, &dataLen,
 	)
 	if err != nil {

@@ -4,10 +4,10 @@ import (
 	"fmt"
 	"unicode/utf16"
 
-	"github.com/TheManticoreProject/Manticore/network/dcerpc/dtyp"
+	msdtyp "github.com/TheManticoreProject/Manticore/windows/ms-dtyp"
 	winreg "github.com/TheManticoreProject/Manticore/network/dcerpc/interfaces/338cd001-2244-31f1-aaaa-900038001003/1.0"
 	winregfunctions "github.com/TheManticoreProject/Manticore/network/dcerpc/interfaces/338cd001-2244-31f1-aaaa-900038001003/1.0/functions"
-	winregstructures "github.com/TheManticoreProject/Manticore/network/dcerpc/interfaces/338cd001-2244-31f1-aaaa-900038001003/1.0/structures"
+	msrrp "github.com/TheManticoreProject/Manticore/windows/protocols/ms-rrp"
 	"github.com/TheManticoreProject/Manticore/network/dcerpc/ndr"
 	dcerpcclient "github.com/TheManticoreProject/Manticore/network/dcerpc/v5/client"
 
@@ -46,7 +46,7 @@ func GetAutoLogon(session *gofenrirsmb.Session) (*AutoLogonResult, error) {
 	defer winregfunctions.BaseRegCloseKey(rpc, hklm)
 
 	hkey, err := winregfunctions.BaseRegOpenKey(rpc, hklm,
-		dtyp.NewUnicodeString(winlogonKey+"\x00"),
+		msdtyp.NewUnicodeString(winlogonKey+"\x00"),
 		0, ndr.DWORD(winreg.KeyRead))
 	if err != nil {
 		return nil, fmt.Errorf("BaseRegOpenKey: %w", err)
@@ -65,7 +65,7 @@ func GetAutoLogon(session *gofenrirsmb.Session) (*AutoLogonResult, error) {
 	return result, nil
 }
 
-func regQueryString(rpc *dcerpcclient.Client, hkey winregstructures.RPC_HKEY, name string) (string, error) {
+func regQueryString(rpc *dcerpcclient.Client, hkey msrrp.RPC_HKEY, name string) (string, error) {
 	dataType := ndr.DWORD(0)
 	bufSize := ndr.DWORD(1024)
 	buf := make([]uint8, int(bufSize))
@@ -73,7 +73,7 @@ func regQueryString(rpc *dcerpcclient.Client, hkey winregstructures.RPC_HKEY, na
 
 	_, lpData, lpcbData, _, err := winregfunctions.BaseRegQueryValue(
 		rpc, hkey,
-		dtyp.NewUnicodeString(name+"\x00"),
+		msdtyp.NewUnicodeString(name+"\x00"),
 		&dataType, buf, &bufSize, &dataLen,
 	)
 	if err != nil {

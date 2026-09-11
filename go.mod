@@ -4,16 +4,16 @@ go 1.26.1
 
 require (
 	github.com/TheManticoreProject/Manticore v1.1.5
+	github.com/TheManticoreProject/winacl v1.3.1
 	github.com/jfjallid/go-smb v0.5.7
 	github.com/spf13/cobra v1.10.2
 	github.com/spf13/pflag v1.0.9
 	github.com/zenazn/pkcs7pad v0.0.0-20170308005700-253a5b1f0e03
+	golang.org/x/crypto v0.43.0
 )
 
 require (
 	github.com/Azure/go-ntlmssp v0.0.0-20221128193559-754e69321358 // indirect
-	github.com/TheManticoreProject/goopts v1.2.4 // indirect
-	github.com/TheManticoreProject/winacl v1.2.14 // indirect
 	github.com/alexbrainman/sspi v0.0.0-20250919150558-7d374ff0d59e // indirect
 	github.com/go-asn1-ber/asn1-ber v1.5.8-0.20250403174932-29230038a667 // indirect
 	github.com/go-ldap/ldap/v3 v3.4.12 // indirect
@@ -29,6 +29,5 @@ require (
 	github.com/jfjallid/gofork v1.7.6 // indirect
 	github.com/jfjallid/gokrb5/v8 v8.4.4 // indirect
 	github.com/jfjallid/golog v0.3.3 // indirect
-	golang.org/x/crypto v0.43.0 // indirect
 	golang.org/x/net v0.46.0 // indirect
 )
