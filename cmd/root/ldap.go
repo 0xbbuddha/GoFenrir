@@ -25,6 +25,7 @@ var (
 	ldapPort     int
 
 	ldapEnumUsers              bool
+	ldapExportUsers            string
 	ldapEnumGroups             bool
 	ldapEnumDCs                bool
 	ldapEnumKerberoast         bool
@@ -182,7 +183,7 @@ func runLDAP(cmd *cobra.Command, args []string) {
 		}
 		out.Success(authMsg)
 
-		if ldapEnumUsers {
+		if ldapEnumUsers || ldapExportUsers != "" {
 			users, err := ldapenum.EnumUsers(session)
 			if err != nil {
 				out.Failure(err.Error())
@@ -196,6 +197,15 @@ func runLDAP(cmd *cobra.Command, args []string) {
 						label += " (disabled)"
 					}
 					out.TreeEntryColored(label, color, i == len(users)-1)
+				}
+				if ldapExportUsers != "" {
+					names := make([]string, len(users))
+					for i, u := range users {
+						names[i] = u.SAMAccountName
+					}
+					if err := core.AppendLinesToFile(ldapExportUsers, names); err != nil {
+						out.Failure(err.Error())
+					}
 				}
 			}
 		}
@@ -792,6 +802,7 @@ func init() {
 	}
 
 	ldapCmd.Flags().BoolVar(&ldapEnumUsers, "users", false, "Enumerate users")
+	ldapCmd.Flags().StringVar(&ldapExportUsers, "export-users", "", "Enumerate users and append their SAMAccountName to this file, one per line (implies --users)")
 	ldapCmd.Flags().BoolVar(&ldapEnumGroups, "groups", false, "Enumerate groups")
 	ldapCmd.Flags().BoolVar(&ldapEnumDCs, "dcs", false, "Enumerate domain controllers")
 	ldapCmd.Flags().BoolVar(&ldapEnumAdmins, "admins", false, "Enumerate domain admins")
@@ -800,7 +811,7 @@ func init() {
 	ldapCmd.Flags().BoolVar(&ldapEnumTrusts, "trusts", false, "Enumerate domain trusts")
 	ldapCmd.Flags().BoolVar(&ldapEnumGPOs, "gpos", false, "Enumerate Group Policy Objects")
 	ldapCmd.Flags().BoolVar(&ldapEnumOUs, "ous", false, "Enumerate Organizational Units")
-	for _, f := range []string{"users", "groups", "dcs", "admins", "computers", "pwd-policy", "trusts", "gpos", "ous"} {
+	for _, f := range []string{"users", "export-users", "groups", "dcs", "admins", "computers", "pwd-policy", "trusts", "gpos", "ous"} {
 		ldapCmd.Flags().SetAnnotation(f, "group", []string{"Enumeration"})
 	}
 
