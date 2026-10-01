@@ -16,6 +16,7 @@ const (
 	ColorRed    = "\x1b[91m"
 	ColorYellow = "\x1b[93m"
 	ColorBlue   = "\x1b[94m"
+	ColorGray   = "\x1b[90m"
 )
 
 var (

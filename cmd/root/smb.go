@@ -2,7 +2,10 @@ package root
 
 import (
 	"fmt"
+	"net"
 	"os"
+	"strconv"
+	"time"
 
 	"strings"
 
@@ -23,6 +26,7 @@ var (
 	smbHash        string
 	smbDomain      string
 	smbPort        int
+	smbTimeout      int
 	smbCheckShares  bool
 	smbNullSession  bool
 	smbGPPPasswords bool
@@ -40,7 +44,6 @@ var (
 	smbEnumRPC         bool
 	smbCoerceTo        string
 	smbLSASettings     bool
-	smbEnumShares      bool
 	smbExec            string
 	smbExecMethod      string
 	smbNoOutput        bool
@@ -48,7 +51,54 @@ var (
 	smbSpiderFilter    string
 	smbSpiderDepth     int
 	smbPasswordSpray   bool
+	smbNoBanner        bool
+	smbOneline         bool
 )
+
+// flag renders a security fact: the insecure state in red, the safe state in green.
+func flag(insecure bool, insecureLabel, secureLabel string) string {
+	if insecure {
+		return fmt.Sprintf("%s%s%s", core.ColorRed, insecureLabel, core.ColorReset)
+	}
+	return fmt.Sprintf("%s%s%s", core.ColorGreen, secureLabel, core.ColorReset)
+}
+
+// smbBannerLine folds the host facts into a single compact line (used with
+// --oneline), separated by a dim pipe for readability.
+func smbBannerLine(hi smbenum.HostInfo) string {
+	parts := make([]string, 0, 6)
+	if hi.Name != "" {
+		parts = append(parts, fmt.Sprintf("%s%s%s", core.ColorBlue, hi.Name, core.ColorReset))
+	}
+	if hi.OS != "" {
+		parts = append(parts, hi.OS)
+	}
+	if hi.Dialect != "" {
+		parts = append(parts, hi.Dialect)
+	}
+	parts = append(parts,
+		"SMBv1:"+flag(hi.SMBv1Enabled, "enabled", "disabled"),
+		"signing:"+flag(!hi.SigningRequired, "off", "on"),
+		"null:"+flag(hi.NullSession, "allowed", "denied"),
+	)
+	sep := fmt.Sprintf("%s │ %s", core.ColorGray, core.ColorReset)
+	return strings.Join(parts, sep)
+}
+
+// smbPortOpen does a single quick TCP connect so a host with nothing on the SMB
+// port is skipped at once, instead of stacking a negotiate timeout per dialect.
+func smbPortOpen(host string, port int) bool {
+	timeout := smb.DialTimeout
+	if timeout <= 0 {
+		timeout = 5 * time.Second
+	}
+	conn, err := net.DialTimeout("tcp", net.JoinHostPort(host, strconv.Itoa(port)), timeout)
+	if err != nil {
+		return false
+	}
+	conn.Close()
+	return true
+}
 
 var smbCmd = &cobra.Command{
 	Use:   "smb",
@@ -61,6 +111,9 @@ func runSMB(cmd *cobra.Command, args []string) {
 		core.Failure("--target is required")
 		os.Exit(1)
 	}
+
+	// Bound every dial so dead hosts in a range fail fast instead of hanging.
+	smb.DialTimeout = time.Duration(smbTimeout) * time.Second
 
 	targets, err := core.ParseTargets(smbTarget)
 	if err != nil {
@@ -106,10 +159,21 @@ func runSMB(cmd *cobra.Command, args []string) {
 		}
 	}
 
+	// When sweeping more than one host, dead IPs are skipped silently; for a
+	// single explicit target we still report that nothing is listening.
+	quiet := len(targets) > 1
+
 	if smbPasswordSpray {
 		core.RunConcurrent(jobs, Threads, func(job core.Job) {
-			_, err := smb.NewSession(job.Target, smbPort, smbDomain, job.Cred.Username, job.Cred.Password, job.Cred.Hash)
 			out := &core.OutputBuffer{}
+			if !smbPortOpen(job.Target, smbPort) {
+				if !quiet {
+					out.Failure(fmt.Sprintf("[SMB] %s - port %d closed/filtered", job.Target, smbPort))
+					out.Flush()
+				}
+				return
+			}
+			_, err := smb.NewSession(job.Target, smbPort, smbDomain, job.Cred.Username, job.Cred.Password, job.Cred.Hash)
 			if err != nil {
 				out.TreeEntryColored(fmt.Sprintf("%-30s %s", job.Cred.Username, err.Error()), core.ColorRed, false)
 			} else {
@@ -129,6 +193,14 @@ func runSMB(cmd *cobra.Command, args []string) {
 	core.RunConcurrent(jobs, Threads, func(job core.Job) {
 		out := &core.OutputBuffer{}
 
+		if !smbPortOpen(job.Target, smbPort) {
+			if !quiet {
+				out.Failure(fmt.Sprintf("[SMB] %s - port %d closed/filtered", job.Target, smbPort))
+				out.Flush()
+			}
+			return
+		}
+
 		session, err := smb.NewSession(job.Target, smbPort, smbDomain, job.Cred.Username, job.Cred.Password, job.Cred.Hash)
 		if err != nil {
 			out.Failure(fmt.Sprintf("[SMB] %s %s\\%s - %s", job.Target, smbDomain, job.Cred.Username, err.Error()))
@@ -140,7 +212,29 @@ func runSMB(cmd *cobra.Command, args []string) {
 		if job.Cred.Hash != "" {
 			authMsg += fmt.Sprintf(" (Pass-the-Hash: %s%s%s)", core.ColorYellow, job.Cred.Hash, core.ColorReset)
 		}
+
+		var hi smbenum.HostInfo
+		if !smbNoBanner {
+			hi = smbenum.GetHostInfo(session, job.Target, smbPort)
+			if smbOneline {
+				authMsg += "  " + smbBannerLine(hi)
+			}
+		}
 		out.Success(authMsg)
+
+		if !smbNoBanner && !smbOneline {
+			out.Section(fmt.Sprintf("Host - %s", job.Target), 1)
+			if hi.Name != "" {
+				out.TreeDetail("Name", hi.Name, false)
+			}
+			if hi.OS != "" {
+				out.TreeDetail("OS", hi.OS, false)
+			}
+			out.TreeDetail("Dialect", hi.Dialect, false)
+			out.TreeDetail("SMBv1", flag(hi.SMBv1Enabled, "enabled", "disabled"), false)
+			out.TreeDetail("Signing", flag(!hi.SigningRequired, "not required", "required"), false)
+			out.TreeDetail("Null session", flag(hi.NullSession, "allowed", "denied"), true)
+		}
 
 		if smbServerInfo {
 			info, err := smbenum.GetServerInfo(session)
@@ -470,12 +564,16 @@ func runSMB(cmd *cobra.Command, args []string) {
 			}
 		}
 
-		if smbEnumShares {
-			shares, err := smbenum.EnumShares(session)
+		if smbCheckShares {
+			shares, fallback, err := smbenum.DiscoverShares(session)
 			if err != nil {
-				out.Failure(fmt.Sprintf("[SMB] Enum Shares: %s", err.Error()))
+				out.Failure(fmt.Sprintf("[SMB] Shares: %s", err.Error()))
 			} else {
-				out.Section("Shares", len(shares))
+				title := "Shares"
+				if fallback {
+					title = "Shares (enumeration denied, probed common names)"
+				}
+				out.Section(title, len(shares))
 				for i, sh := range shares {
 					last := i == len(shares)-1
 					label := fmt.Sprintf("[%-10s] %s", sh.TypeLabel, sh.Name)
@@ -507,25 +605,6 @@ func runSMB(cmd *cobra.Command, args []string) {
 				out.Section(fmt.Sprintf("Exec: %s", smbExec), len(lines))
 				for i, l := range lines {
 					out.TreeEntryColored(strings.TrimRight(l, "\r"), core.ColorReset, i == len(lines)-1)
-				}
-			}
-		}
-
-		if smbCheckShares {
-			results := smbenum.CheckShareAccess(session, smbenum.CommonShares)
-			accessible := 0
-			for _, r := range results {
-				if r.Accessible {
-					accessible++
-				}
-			}
-			out.Section("Accessible Shares", accessible)
-			for i, r := range results {
-				last := i == len(results)-1
-				if r.Accessible {
-					out.TreeEntryColored(r.Name, core.ColorGreen, last)
-				} else {
-					out.TreeEntryColored(r.Name+" (denied)", core.ColorRed, last)
 				}
 			}
 		}
@@ -593,11 +672,14 @@ func init() {
 	smbCmd.Flags().StringVarP(&smbHash, "hash", "H", "", "NT hash (format: [LM:]NT)")
 	smbCmd.Flags().StringVarP(&smbDomain, "domain", "d", "", "Domain")
 	smbCmd.Flags().IntVar(&smbPort, "port", 445, "SMB port")
-	for _, f := range []string{"target", "username", "password", "hash", "domain", "port"} {
+	smbCmd.Flags().IntVar(&smbTimeout, "connect-timeout", 5, "Per-attempt connect/negotiate timeout in seconds (0 = manticore default, <0 = no limit)")
+	smbCmd.Flags().BoolVar(&smbNoBanner, "no-banner", false, "Skip the host banner (OS, dialect, SMBv1, signing, null session) shown on login")
+	smbCmd.Flags().BoolVar(&smbOneline, "oneline", false, "Render the host banner on a single compact line instead of a tree")
+	for _, f := range []string{"target", "username", "password", "hash", "domain", "port", "connect-timeout", "no-banner", "oneline"} {
 		smbCmd.Flags().SetAnnotation(f, "group", []string{"Connection"})
 	}
 
-	smbCmd.Flags().BoolVar(&smbCheckShares, "shares", false, "Enumerate shares and check access")
+	smbCmd.Flags().BoolVar(&smbCheckShares, "shares", false, "Enumerate all shares via NetrShareEnum with access check (falls back to probing common names if denied)")
 	smbCmd.Flags().BoolVar(&smbNullSession, "null-session", false, "Check for null/anonymous session")
 	smbCmd.Flags().BoolVar(&smbGPPPasswords, "gpp-passwords", false, "Search SYSVOL for GPP cpasswords and decrypt them (MS14-025)")
 	smbCmd.Flags().BoolVar(&smbRIDBrute, "rid-brute", false, "Enumerate users/groups via SAMR (RID cycling fallback if enumeration denied)")
@@ -614,7 +696,6 @@ func init() {
 	smbCmd.Flags().BoolVar(&smbEnumRPC, "enum-rpc", false, "Enumerate registered RPC endpoints via the endpoint mapper (EPM, port 135 via IPC$)")
 	smbCmd.Flags().StringVar(&smbCoerceTo, "coerce-to", "", "Trigger PetitPotam (MS-EFSR) coercion: target authenticates to <attacker_ip> (capture with Responder)")
 	smbCmd.Flags().BoolVar(&smbLSASettings, "lsa-settings", false, "Read LSA security settings: WDigest, RunAsPPL, LmCompatibilityLevel, null session restrictions")
-	smbCmd.Flags().BoolVar(&smbEnumShares, "enum-shares", false, "Enumerate all shares via srvsvc NetrShareEnum with type, comment, and access check")
 	smbCmd.Flags().StringVar(&smbExec, "exec", "", "Execute a command on the target (see --exec-method)")
 	smbCmd.Flags().StringVar(&smbExecMethod, "exec-method", "smbexec", "Execution method: smbexec (MS-SCMR service) or atexec (MS-TSCH scheduled task)")
 	smbCmd.Flags().BoolVar(&smbNoOutput, "no-output", false, "Suppress command output (use with --exec for fire-and-forget)")
@@ -622,7 +703,7 @@ func init() {
 	smbCmd.Flags().StringVar(&smbSpiderFilter, "spider-filter", "", `Glob pattern to match filenames (e.g. "*.xml", "pass*", default: all files)`)
 	smbCmd.Flags().IntVar(&smbSpiderDepth, "depth", 0, "Maximum spider recursion depth (0 = unlimited)")
 	smbCmd.Flags().BoolVar(&smbPasswordSpray, "password-spray", false, "Test credentials only (no enumeration) - use with -u file and -p password")
-	for _, f := range []string{"shares", "null-session", "gpp-passwords", "rid-brute", "rid-start", "rid-end", "local-groups", "sessions", "loggedon-users", "who-has-priv", "server-info", "services", "services-filter", "check-autologon", "enum-rpc", "coerce-to", "lsa-settings", "enum-shares", "exec", "exec-method", "no-output", "spider", "spider-filter", "depth", "password-spray"} {
+	for _, f := range []string{"shares", "null-session", "gpp-passwords", "rid-brute", "rid-start", "rid-end", "local-groups", "sessions", "loggedon-users", "who-has-priv", "server-info", "services", "services-filter", "check-autologon", "enum-rpc", "coerce-to", "lsa-settings", "exec", "exec-method", "no-output", "spider", "spider-filter", "depth", "password-spray"} {
 		smbCmd.Flags().SetAnnotation(f, "group", []string{"Enumeration"})
 	}
 
