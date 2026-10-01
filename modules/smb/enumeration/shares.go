@@ -53,6 +53,36 @@ const (
 	stypeTemporary = uint32(0x40000000)
 )
 
+// DiscoverShares lists every share via NetrShareEnum (the same method netexec
+// uses), returning type, comment and read access for each. If the RPC
+// enumeration is refused (common for low-privileged users), it falls back to
+// probing the well-known share names so at least the reachable ones surface.
+// The returned bool is true when the fallback probe was used.
+func DiscoverShares(session *smb.Session) ([]ShareEntry, bool, error) {
+	entries, err := EnumShares(session)
+	if err == nil {
+		return entries, false, nil
+	}
+
+	// Enumeration denied: probe the common names directly.
+	probed := make([]ShareEntry, 0, len(CommonShares))
+	for _, name := range CommonShares {
+		if session.Client.TreeConnect(name) != nil {
+			continue
+		}
+		probed = append(probed, ShareEntry{
+			Name:      name,
+			TypeLabel: "Disk",
+			Hidden:    name[len(name)-1] == '$',
+			CanRead:   true,
+		})
+	}
+	if len(probed) == 0 {
+		return nil, true, err
+	}
+	return probed, true, nil
+}
+
 // EnumShares lists all shares on the target via srvsvc NetrShareEnum (level 1),
 // then attempts a TreeConnect on each to determine read access.
 func EnumShares(session *smb.Session) ([]ShareEntry, error) {
