@@ -1,4 +1,5 @@
 gofenrir
+/gf
 *.exe
 go.work
 go.work.sum

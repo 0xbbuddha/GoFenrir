@@ -18,23 +18,6 @@ var CommonShares = []string{
 	"print$",
 }
 
-type ShareAccess struct {
-	Name       string
-	Accessible bool
-}
-
-func CheckShareAccess(s *smb.Session, shares []string) []ShareAccess {
-	var results []ShareAccess
-	for _, share := range shares {
-		err := s.TreeConnect(share)
-		results = append(results, ShareAccess{
-			Name:       share,
-			Accessible: err == nil,
-		})
-	}
-	return results
-}
-
 // ShareEntry describes a share returned by NetrShareEnum.
 type ShareEntry struct {
 	Name      string
