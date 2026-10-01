@@ -46,10 +46,15 @@ func ParseCredentials(username, password, hash string) ([]Credential, error) {
 }
 
 // parseWordlist returns the input as a slice.
+// If it starts with \@, the leading \ is stripped and the rest is taken
+// literally (use this for a value that really starts with @).
 // If it starts with @, treats the rest as a file path.
 // If it's an existing file path, reads it line by line.
 // Otherwise returns [input].
 func parseWordlist(input string) ([]string, error) {
+	if strings.HasPrefix(input, `\@`) {
+		return []string{input[1:]}, nil
+	}
 	if strings.HasPrefix(input, "@") {
 		return readLines(input[1:])
 	}

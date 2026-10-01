@@ -3,6 +3,7 @@ package root
 import (
 	"fmt"
 	"os"
+	"strconv"
 
 	"github.com/0xbbuddha/GoFenrir/core"
 	ldapadcs "github.com/0xbbuddha/GoFenrir/modules/ldap/adcs"
@@ -43,6 +44,7 @@ var (
 	ldapEnumShadowCreds        bool
 	ldapEnumWeakAccounts       bool
 	ldapEnumDomainInfo         bool
+	ldapEnumMAQ                bool
 	ldapEnumPrivilegedGroups   bool
 	ldapEnumAdminCount         bool
 	ldapEnumLAPS               bool
@@ -556,6 +558,28 @@ func runLDAP(cmd *cobra.Command, args []string) {
 			}
 		}
 
+		if ldapEnumMAQ {
+			maq, err := ldapenum.GetMachineAccountQuota(session)
+			if err != nil {
+				out.Failure(err.Error())
+			} else {
+				out.Section("Machine Account Quota", 1)
+				value := strconv.Itoa(maq.Quota)
+				if maq.IsDefault {
+					value += " (default, attribute unset)"
+				}
+				out.TreeDetail("ms-DS-MachineAccountQuota", value, false)
+				if maq.Quota > 0 {
+					note := fmt.Sprintf("%sany authenticated user can create up to %d machine account(s) (RBCD/noPac)%s",
+						core.ColorRed, maq.Quota, core.ColorReset)
+					out.TreeDetail("Note", note, true)
+				} else {
+					note := fmt.Sprintf("%susers cannot create machine accounts%s", core.ColorGreen, core.ColorReset)
+					out.TreeDetail("Note", note, true)
+				}
+			}
+		}
+
 		if ldapEnumPrivilegedGroups {
 			groups, err := ldappriv.EnumPrivilegedGroups(session, ldapDomain)
 			if err != nil {
@@ -819,7 +843,8 @@ func init() {
 	ldapCmd.Flags().BoolVar(&ldapEnumPrivilegedGroups, "privileged-groups", false, "Enumerate privileged groups and their members (Domain Admins, Enterprise Admins, etc.)")
 	ldapCmd.Flags().BoolVar(&ldapEnumAdminCount, "admin-count", false, "Find objects with adminCount=1 (AdminSDHolder protected)")
 	ldapCmd.Flags().BoolVar(&ldapEnumPSO, "pso", false, "Enumerate Fine-Grained Password Policies (PSO) and their targets")
-	for _, f := range []string{"domain-info", "privileged-groups", "admin-count", "pso"} {
+	ldapCmd.Flags().BoolVar(&ldapEnumMAQ, "maq", false, "Get ms-DS-MachineAccountQuota (machine accounts a user can create - RBCD/noPac)")
+	for _, f := range []string{"domain-info", "privileged-groups", "admin-count", "pso", "maq"} {
 		ldapCmd.Flags().SetAnnotation(f, "group", []string{"Domain"})
 	}
 
