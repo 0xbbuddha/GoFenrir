@@ -11,7 +11,11 @@ import (
 // ParseTargets expands a target string into a list of hosts.
 // Accepts: single IP/hostname, CIDR range (e.g. 192.168.1.0/24),
 // @file reference, or a path to an existing file.
+// A leading \@ is an escape: the \ is stripped and the rest is taken literally.
 func ParseTargets(target string) ([]string, error) {
+	if strings.HasPrefix(target, `\@`) {
+		return []string{target[1:]}, nil
+	}
 	if strings.HasPrefix(target, "@") {
 		return readLines(target[1:])
 	}
