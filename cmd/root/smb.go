@@ -499,8 +499,8 @@ func runSMB(cmd *cobra.Command, args []string) {
 				out.Failure(fmt.Sprintf("[SMB] AV/EDR: %s", err.Error()))
 			} else {
 				out.Section("AV/EDR", len(avs))
-				for i, name := range avs {
-					out.TreeEntryColored(name, core.ColorRed, i == len(avs)-1)
+				for i, h := range avs {
+					out.TreeEntryColored(fmt.Sprintf("%s (%s)", h.Product, h.Status()), core.ColorRed, i == len(avs)-1)
 				}
 			}
 		}
