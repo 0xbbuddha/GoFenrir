@@ -39,6 +39,7 @@ var (
 	smbWhoHasPriv      string
 	smbServerInfo      bool
 	smbEnumServices    bool
+	smbEnumAV          bool
 	smbServicesFilter  string
 	smbCheckAutoLogon  bool
 	smbEnumRPC         bool
@@ -492,6 +493,18 @@ func runSMB(cmd *cobra.Command, args []string) {
 			}
 		}
 
+		if smbEnumAV {
+			avs, err := smbenum.DetectAV(session)
+			if err != nil {
+				out.Failure(fmt.Sprintf("[SMB] AV/EDR: %s", err.Error()))
+			} else {
+				out.Section("AV/EDR", len(avs))
+				for i, name := range avs {
+					out.TreeEntryColored(name, core.ColorRed, i == len(avs)-1)
+				}
+			}
+		}
+
 		if smbEnumServices {
 			svcs, err := smbenum.EnumServices(session, smbServicesFilter)
 			if err != nil {
@@ -691,6 +704,7 @@ func init() {
 	smbCmd.Flags().StringVar(&smbWhoHasPriv, "who-has-priv", "", `List accounts holding a privilege (e.g. SeDebugPrivilege) or "all" for every non-empty privilege`)
 	smbCmd.Flags().BoolVar(&smbServerInfo, "server-info", false, "Query server name, OS version and roles via srvsvc NetrServerGetInfo")
 	smbCmd.Flags().BoolVar(&smbEnumServices, "services", false, "Enumerate services via MS-SCMR (svcctl) including binary path and run-as account")
+	smbCmd.Flags().BoolVar(&smbEnumAV, "enum-av", false, "Detect installed AV/EDR by matching enumerated services against known signatures")
 	smbCmd.Flags().StringVar(&smbServicesFilter, "services-filter", "", `Filter services by state: "running" or "stopped" (default: all)`)
 	smbCmd.Flags().BoolVar(&smbCheckAutoLogon, "check-autologon", false, "Read AutoLogon credentials from HKLM\\...\\Winlogon via MS-RRP (winreg)")
 	smbCmd.Flags().BoolVar(&smbEnumRPC, "enum-rpc", false, "Enumerate registered RPC endpoints via the endpoint mapper (EPM, port 135 via IPC$)")
@@ -703,7 +717,7 @@ func init() {
 	smbCmd.Flags().StringVar(&smbSpiderFilter, "spider-filter", "", `Glob pattern to match filenames (e.g. "*.xml", "pass*", default: all files)`)
 	smbCmd.Flags().IntVar(&smbSpiderDepth, "depth", 0, "Maximum spider recursion depth (0 = unlimited)")
 	smbCmd.Flags().BoolVar(&smbPasswordSpray, "password-spray", false, "Test credentials only (no enumeration) - use with -u file and -p password")
-	for _, f := range []string{"shares", "null-session", "gpp-passwords", "rid-brute", "rid-start", "rid-end", "local-groups", "sessions", "loggedon-users", "who-has-priv", "server-info", "services", "services-filter", "check-autologon", "enum-rpc", "coerce-to", "lsa-settings", "exec", "exec-method", "no-output", "spider", "spider-filter", "depth", "password-spray"} {
+	for _, f := range []string{"shares", "null-session", "gpp-passwords", "rid-brute", "rid-start", "rid-end", "local-groups", "sessions", "loggedon-users", "who-has-priv", "server-info", "services", "enum-av", "services-filter", "check-autologon", "enum-rpc", "coerce-to", "lsa-settings", "exec", "exec-method", "no-output", "spider", "spider-filter", "depth", "password-spray"} {
 		smbCmd.Flags().SetAnnotation(f, "group", []string{"Enumeration"})
 	}
 
