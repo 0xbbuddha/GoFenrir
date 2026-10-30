@@ -69,6 +69,7 @@ Enumeration:
       --admins                         Enumerate domain admins
       --computers                      Enumerate computer accounts with OS info
       --dcs                            Enumerate domain controllers
+      --export-users string            Dump found sAMAccountNames to a file
       --gpos                           Enumerate Group Policy Objects
       --groups                         Enumerate groups
       --ous                            Enumerate Organizational Units
@@ -79,6 +80,7 @@ Enumeration:
 Domain:
       --admin-count                    Find objects with adminCount=1 (AdminSDHolder protected)
       --domain-info                    Get domain info (functional level, SID, PDC, DNS servers, naming contexts)
+      --maq                            Get ms-DS-MachineAccountQuota (machine accounts a user can create - RBCD/noPac)
       --privileged-groups              Enumerate privileged groups and their members (Domain Admins, Enterprise Admins, etc.)
       --pso                            Enumerate Fine-Grained Password Policies (PSO) and their targets
 
@@ -144,22 +146,48 @@ Connection:
       --port int                       SMB port
   -t, --target string                  Target IP, hostname, CIDR, or file path
   -u, --username string                Username or file of usernames
+      --connect-timeout int            Per-attempt connect/negotiate timeout in seconds (0 = manticore default, <0 = no limit)
+      --no-banner                      Skip the host banner (OS, dialect, SMBv1, signing, null session) shown on login
+      --oneline                        Render the host banner on a single compact line instead of a tree
 
 Enumeration:
-      --gpp-passwords                  Search SYSVOL for GPP cpasswords and decrypt them (MS14-025)
-      --local-groups                   Enumerate local groups and their members via SAMR+LSA
-      --loggedon-users                 Enumerate logged-on users via MS-WKST (NetrWkstaUserEnum)
+      --shares                         Enumerate all shares via NetrShareEnum with access check (falls back to probing common names if denied)
       --null-session                   Check for null/anonymous session
+      --gpp-passwords                  Search SYSVOL for GPP cpasswords and decrypt them (MS14-025)
       --rid-brute                      Enumerate users/groups via SAMR (RID cycling fallback if enumeration denied)
-      --rid-end uint32                 Ending RID for cycling fallback
       --rid-start uint32               Starting RID for cycling fallback
+      --rid-end uint32                 Ending RID for cycling fallback
+      --local-groups                   Enumerate local groups and their members via SAMR+LSA
       --sessions                       Enumerate active SMB sessions via srvsvc (useful on DCs to spot admin sessions)
-      --shares                         Enumerate shares and check access
+      --loggedon-users                 Enumerate logged-on users via MS-WKST (NetrWkstaUserEnum)
       --who-has-priv string            List accounts holding a privilege (e.g. SeDebugPrivilege) or "all" for every non-empty privilege
+      --server-info                    Query server name, OS version and roles via srvsvc NetrServerGetInfo
+      --services                       Enumerate services via MS-SCMR (svcctl) including binary path and run-as account
+      --services-filter string         Filter services by state: "running" or "stopped" (default: all)
+      --check-autologon                Read AutoLogon credentials from HKLM\...\Winlogon via MS-RRP (winreg)
+      --enum-rpc                       Enumerate registered RPC endpoints via the endpoint mapper (EPM, port 135 via IPC$)
+      --lsa-settings                   Read LSA security settings: WDigest, RunAsPPL, LmCompatibilityLevel, null session restrictions
+      --enum-av                        Detect installed/running AV/EDR via LsarLookupNames (service SIDs) and IPC$ named pipes
+
+Vulnerability checks:
+      --zerologon                      Check for Zerologon (CVE-2020-1472) - detection only, does not reset the machine password
+
+Coercion:
+      --coerce-to string               Trigger coercion: target authenticates to <attacker_ip> (capture with Responder)
+      --coerce-method string           Coercion method: petitpotam (MS-EFSR), printerbug (MS-RPRN), shadowcoerce (MS-FSRVP) or dfscoerce (MS-DFSNM)
+
+Spider:
+      --spider string                  Recursively list files on a share (e.g. SYSVOL) or "all" for every readable share
+      --spider-filter string           Glob pattern to match filenames (e.g. "*.xml", "pass*", default: all files)
+      --depth int                      Maximum spider recursion depth (0 = unlimited)
 
 Execution:
       --exec string                    Execute a command on the target (see --exec-method)
       --exec-method string             Execution method: smbexec (MS-SCMR service) or atexec (MS-TSCH scheduled task)
+      --no-output                      Suppress command output (use with --exec for fire-and-forget)
+
+Credential Attacks:
+      --password-spray                 Test credentials only (no enumeration) - use with -u file and -p password
 
 Global:
       --threads int            Number of concurrent threads (default 1)
