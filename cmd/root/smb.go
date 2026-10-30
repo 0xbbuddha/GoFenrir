@@ -45,6 +45,7 @@ var (
 	smbEnumRPC         bool
 	smbCoerceTo        string
 	smbCoerceMethod    string
+	smbZerologon       bool
 	smbLSASettings     bool
 	smbExec            string
 	smbExecMethod      string
@@ -476,6 +477,20 @@ func runSMB(cmd *cobra.Command, args []string) {
 			}
 		}
 
+		if smbZerologon {
+			res, err := smbenum.CheckZerologon(session)
+			if err != nil {
+				out.Failure(fmt.Sprintf("[SMB] Zerologon: %s", err.Error()))
+			} else {
+				out.Section("Zerologon (CVE-2020-1472)", 1)
+				if res.Vulnerable {
+					out.TreeEntryColored(fmt.Sprintf("VULNERABLE - %s accepted a zero credential (%d attempts)", res.DCName, res.Attempts), core.ColorRed, true)
+				} else {
+					out.TreeEntryColored(fmt.Sprintf("not vulnerable (%s, %d attempts)", res.DCName, res.Attempts), core.ColorGreen, true)
+				}
+			}
+		}
+
 		if smbCoerceTo != "" {
 			label := "PetitPotam"
 			coerce := smbcoerce.PetitPotam
@@ -716,6 +731,7 @@ func init() {
 	smbCmd.Flags().BoolVar(&smbEnumRPC, "enum-rpc", false, "Enumerate registered RPC endpoints via the endpoint mapper (EPM, port 135 via IPC$)")
 	smbCmd.Flags().StringVar(&smbCoerceTo, "coerce-to", "", "Trigger coercion: target authenticates to <attacker_ip> (capture with Responder)")
 	smbCmd.Flags().StringVar(&smbCoerceMethod, "coerce-method", "petitpotam", "Coercion method: petitpotam (MS-EFSR) or printerbug (MS-RPRN spooler)")
+	smbCmd.Flags().BoolVar(&smbZerologon, "zerologon", false, "Check for Zerologon (CVE-2020-1472) - detection only, does not reset the machine password")
 	smbCmd.Flags().BoolVar(&smbLSASettings, "lsa-settings", false, "Read LSA security settings: WDigest, RunAsPPL, LmCompatibilityLevel, null session restrictions")
 	smbCmd.Flags().StringVar(&smbExec, "exec", "", "Execute a command on the target (see --exec-method)")
 	smbCmd.Flags().StringVar(&smbExecMethod, "exec-method", "smbexec", "Execution method: smbexec (MS-SCMR service) or atexec (MS-TSCH scheduled task)")
@@ -724,7 +740,7 @@ func init() {
 	smbCmd.Flags().StringVar(&smbSpiderFilter, "spider-filter", "", `Glob pattern to match filenames (e.g. "*.xml", "pass*", default: all files)`)
 	smbCmd.Flags().IntVar(&smbSpiderDepth, "depth", 0, "Maximum spider recursion depth (0 = unlimited)")
 	smbCmd.Flags().BoolVar(&smbPasswordSpray, "password-spray", false, "Test credentials only (no enumeration) - use with -u file and -p password")
-	for _, f := range []string{"shares", "null-session", "gpp-passwords", "rid-brute", "rid-start", "rid-end", "local-groups", "sessions", "loggedon-users", "who-has-priv", "server-info", "services", "enum-av", "services-filter", "check-autologon", "enum-rpc", "coerce-to", "coerce-method", "lsa-settings", "exec", "exec-method", "no-output", "spider", "spider-filter", "depth", "password-spray"} {
+	for _, f := range []string{"shares", "null-session", "gpp-passwords", "rid-brute", "rid-start", "rid-end", "local-groups", "sessions", "loggedon-users", "who-has-priv", "server-info", "services", "enum-av", "services-filter", "check-autologon", "enum-rpc", "coerce-to", "coerce-method", "zerologon", "lsa-settings", "exec", "exec-method", "no-output", "spider", "spider-filter", "depth", "password-spray"} {
 		smbCmd.Flags().SetAnnotation(f, "group", []string{"Enumeration"})
 	}
 
