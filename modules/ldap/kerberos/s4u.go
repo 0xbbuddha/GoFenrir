@@ -53,26 +53,23 @@ func S4U(kdcHost, realm, username, password, hash, aesKey, impersonate, targetSP
 		return nil, fmt.Errorf("GetTGT: %w", err)
 	}
 
-	_, selfRaw, _, err := client.S4U2Self(impersonate, realmUpper)
+	_, selfRaw, _, _, err := client.S4U2Self(impersonate, realmUpper)
 	if err != nil {
 		return nil, fmt.Errorf("S4U2Self(%s): %w", impersonate, err)
 	}
 
-	ticket, proxyRaw, key, err := client.S4U2Proxy(targetSPN, selfRaw)
+	ticket, proxyRaw, key, etype, err := client.S4U2Proxy(targetSPN, selfRaw)
 	if err != nil {
 		return nil, fmt.Errorf("S4U2Proxy(%s): %w", targetSPN, err)
 	}
 
-	// Rebuild the delegated service ticket so it can be exported. The session-key
-	// encryption type is inferred from the key length: 32 bytes = AES256 (the
-	// modern default), 16 bytes = RC4. An AES128-only service (16-byte key, etype
-	// 17) is rare; pass such a ticket to hashcat/impacket if the ccache etype
-	// looks wrong.
+	// Rebuild the delegated service ticket so it can be exported, using the
+	// session-key encryption type reported by the KDC in the S4U2Proxy TGS-REP.
 	st := &mtkrb.ServiceTicket{
 		Ticket:       ticket,
 		TicketRaw:    proxyRaw,
 		SessionKey:   key,
-		SessionEType: etypeFromKeyLen(len(key)),
+		SessionEType: etype,
 		Client:       messages.PrincipalName{NameType: messages.NameTypePrincipal, NameString: []string{impersonate}},
 		CRealm:       realmUpper,
 		SName:        ticket.SName,
@@ -97,16 +94,4 @@ func S4U(kdcHost, realm, username, password, hash, aesKey, impersonate, targetSP
 		_ = os.Remove(ccachePath)
 	}
 	return res, nil
-}
-
-// etypeFromKeyLen maps a Kerberos session-key length to its encryption type.
-func etypeFromKeyLen(n int) int {
-	switch n {
-	case 32:
-		return 18 // aes256-cts-hmac-sha1-96
-	case 16:
-		return 23 // rc4-hmac
-	default:
-		return 23
-	}
 }
